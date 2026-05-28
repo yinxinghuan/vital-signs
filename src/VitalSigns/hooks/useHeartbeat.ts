@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PatientStatus, TapQuality } from '../types';
-import { tick as audioTick } from '../utils/audio';
+import { bleep as audioBleep } from '../utils/audio';
 
 export interface BeatMark {
   at: number;          // performance.now()
@@ -235,15 +235,18 @@ export function useHeartbeat(opts: UseHeartbeatOptions) {
         // Compute expected next beat in light of (possibly changing) targetBPM
         const beatIntervalMs = 60000 / st.targetBPM;
 
-        // Soft target metronome cue — single tick at each expected beat moment,
-        // for player calibration. Skip the very first beat after start so the
-        // pre-tap grace isn't broken by a startle cue.
+        // Bedside monitor bleep at each expected beat — the patient's own
+        // heart audible. Pitch + volume shift slightly with current vitals so
+        // a tachy patient sounds tighter, a brady one duller.
         if (
           st.lastTickedAt < st.nextExpectedAt &&
           now >= st.nextExpectedAt &&
           now - st.startedAt > 1500
         ) {
-          audioTick(0.07);
+          // Pitch range: 660Hz at 40 BPM → 980Hz at 130 BPM
+          const pitch = 660 + Math.min(1, Math.max(0, (st.targetBPM - 40) / 90)) * 320;
+          const vol = st.status === 'critical' ? 0.13 : 0.08;
+          audioBleep(pitch, vol);
           st.lastTickedAt = st.nextExpectedAt;
         }
 

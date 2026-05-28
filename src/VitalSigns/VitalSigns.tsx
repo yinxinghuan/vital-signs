@@ -9,10 +9,13 @@ import { useAigramContacts, pickRandomPatient } from './hooks/useAigramContacts'
 import { useDeathCertificate, type DeathCertificate as DCert } from './hooks/useDeathCertificate';
 import { useFateWall } from './hooks/useFateWall';
 import { useGameSave } from '@shared/save';
+import { useGameEvent } from '@shared/runtime';
 import type { Patient, FateRecord, VitalSignsSave } from './types';
 import EcgCanvas from './components/EcgCanvas';
 import Hud from './components/Hud';
 import FateWall from './components/FateWall';
+import StatusStrip from './components/StatusStrip';
+import PlethCanvas from './components/PlethCanvas';
 import { t } from './i18n';
 import * as audio from './utils/audio';
 
@@ -46,6 +49,7 @@ export default function VitalSigns() {
   const cert = useDeathCertificate();
   const save = useGameSave<VitalSignsSave>('vital-signs');
   const wall = useFateWall();
+  const event = useGameEvent();
   const persistedFateRef = useRef<string | null>(null);
 
   const newShift = useCallback(() => {
@@ -71,8 +75,15 @@ export default function VitalSigns() {
       cert.generate({
         patient,
         lifeSeconds: cur.state.lifeSeconds,
-        cause,
+        outcome: cause,
         bestCombo: cur.state.bestCombo,
+      });
+      // Platform event — fires backend notify to the friend whose dream
+      // ended on the table tonight. Same pattern as Wake-Up / Tag You're It.
+      event.trigger('patient_lost', {
+        target_user_id: patient.telegram_id,
+        outcome: cause,
+        lifeSeconds: Math.floor(cur.state.lifeSeconds),
       });
     }
 
@@ -80,7 +91,29 @@ export default function VitalSigns() {
       audio.stopSustained();
       setPhase('certificate');
     }, 2600);
-  }, [cert, patient]);
+  }, [cert, patient, event]);
+
+  // Manual release — only available once the patient has stabilized.
+  // Treated as a survival outcome.
+  const releasePatient = useCallback(() => {
+    if (phase !== 'playing') return;
+    const cur = heartbeatRef.current;
+    if (!patient || !cur) return;
+    audio.thump(0.6);
+    setPhase('dying'); // briefly show the "transition" frame
+    cert.generate({
+      patient,
+      lifeSeconds: cur.state.lifeSeconds,
+      outcome: 'survived',
+      bestCombo: cur.state.bestCombo,
+    });
+    event.trigger('patient_saved', {
+      target_user_id: patient.telegram_id,
+      lifeSeconds: Math.floor(cur.state.lifeSeconds),
+      bestCombo: cur.state.bestCombo,
+    });
+    setTimeout(() => setPhase('certificate'), 1200);
+  }, [phase, patient, cert, event]);
 
   const { state, beats, tap, reset } = useHeartbeat({
     enabled: phase === 'playing',
@@ -110,7 +143,10 @@ export default function VitalSigns() {
       patientId: patient.telegram_id,
       patientName: patient.name,
       patientAvatarUrl: patient.head_url,
-      outcome: state.status === 'vfib' ? 'vfib' : 'flatline',
+      outcome:
+        state.status === 'vfib' ? 'vfib' :
+        state.status === 'flatline' ? 'flatline' :
+        'survived',
       lifeSeconds: Math.floor(state.lifeSeconds),
       bestCombo: state.bestCombo,
       score: state.score,
@@ -120,6 +156,7 @@ export default function VitalSigns() {
       verdict: cert.certificate.verdict,
       morgueImageUrl: cert.morgueUrl,
       createdAt: Date.now(),
+      reactions: { candle: 0, salute: 0, rest: 0 },
     };
 
     const existing = save.savedData;
@@ -184,11 +221,15 @@ export default function VitalSigns() {
   if (phase === 'splash') {
     return (
       <div className="vs vs--splash" onPointerDown={startGame}>
-        <PatientCard patient={patient} />
+        <AmbientOverlay />
+        <div className="vs-splash__topcard">
+          <PatientCard patient={patient} bpm={60} />
+        </div>
         <div className="vs-splash__instructions">
           <div className="vs-splash__line">{t('splash.line1')}</div>
           <div className="vs-splash__line">{t('splash.line2')}</div>
         </div>
+        <SplashDemoLoop />
         <div className="vs-splash__cta">
           <div className="vs-splash__ctaText">{t('splash.cta')}</div>
           <div className="vs-splash__ctaPulse" />
@@ -212,16 +253,22 @@ export default function VitalSigns() {
   }
 
   if (phase === 'certificate') {
+    const outcome: 'flatline' | 'vfib' | 'survived' =
+      state.status === 'vfib' ? 'vfib' :
+      state.status === 'flatline' ? 'flatline' :
+      'survived';
     return (
       <Certificate
         patient={patient}
         lifeSeconds={Math.floor(state.lifeSeconds)}
         bestCombo={state.bestCombo}
-        statusCause={state.status === 'vfib' ? 'V-fib' : 'asystole'}
+        outcome={outcome}
         score={state.score}
         certificate={cert.certificate}
         morgueUrl={cert.morgueUrl}
         generating={cert.generating}
+        certError={cert.certError}
+        imageError={cert.imageError}
         onRestart={() => { reset(); newShift(); }}
         onWall={() => setPhase('wall')}
       />
@@ -239,10 +286,25 @@ export default function VitalSigns() {
 
   return (
     <div className="vs vs--play" onPointerDown={onTapZone}>
-      <PatientCard patient={patient} state={state.status} />
+      <AmbientOverlay />
+      <StatusStrip state={state} />
+      <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} />
       <Hud state={state} patientName={patient.name || patient.telegram_id} />
-      <div className="vs__ecg">
-        <EcgCanvas beats={beats} status={state.status} />
+      <div className="vs__monitor">
+        <div className="vs__channel">
+          <div className="vs__channelLabel">
+            <span>II</span>
+            <span className="vs__channelGain">×1.0</span>
+          </div>
+          <EcgCanvas beats={beats} status={state.status} height={140} />
+        </div>
+        <div className="vs__channel vs__channel--pleth">
+          <div className="vs__channelLabel">
+            <span>SpO₂</span>
+            <span className="vs__channelGain">{state.status === 'flatline' ? '— —' : `${state.spO2}%`}</span>
+          </div>
+          <PlethCanvas status={state.status} bpm={state.targetBPM} height={60} />
+        </div>
       </div>
       <div className="vs__tapZone">
         <TargetRing targetBPM={state.targetBPM} status={state.status} />
@@ -250,23 +312,97 @@ export default function VitalSigns() {
           {state.totalTaps < 3 ? t('play.hint') : ''}
         </div>
         <TapFeedback quality={state.lastQuality} totalTaps={state.totalTaps} />
+        <div className="vs__tapZoneCorners">
+          <span /><span /><span /><span />
+        </div>
       </div>
+      <ReleaseButton
+        eligible={state.lifeSeconds >= 75 && state.bestCombo >= 20 && state.status === 'alive'}
+        onRelease={(e) => { e.stopPropagation(); releasePatient(); }}
+      />
       <Watermark />
     </div>
   );
 }
 
-function PatientCard({ patient, state, dying }: { patient: Patient; state?: string; dying?: boolean }) {
-  const initials = useMemo(() => (patient.name || patient.telegram_id || '?').slice(0, 2).toUpperCase(), [patient]);
+function ReleaseButton({ eligible, onRelease }: { eligible: boolean; onRelease: (e: React.PointerEvent) => void }) {
+  if (!eligible) return null;
   return (
-    <div className={`vs-patient ${dying ? 'is-dying' : ''} ${state === 'critical' ? 'is-critical' : ''}`}>
+    <button className="vs__release" onPointerDown={onRelease}>
+      <span className="vs__releaseDot" />
+      <span>{t('play.release')}</span>
+    </button>
+  );
+}
+
+function SplashDemoLoop() {
+  // Demo ECG preview — looping synthetic beats at 60 BPM, runs until first
+  // tap (entire splash unmounts). Per CLAUDE.md instant-play tutorial rule.
+  const [beats, setBeats] = useState<{ at: number; quality: any; strength: number }[]>([]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const t = performance.now();
+      setBeats((b) => [...b.slice(-5), { at: t, quality: 'perfect', strength: 1 }]);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="vs-splash__demo">
+      <div className="vs-splash__demoLabel">
+        <span>II</span>
+        <span className="vs-splash__demoBpm">60 bpm · target</span>
+      </div>
+      <EcgCanvas beats={beats} status="alive" height={68} pxPerSec={100} />
+      <div className="vs-splash__demoRing" />
+    </div>
+  );
+}
+
+function AmbientOverlay() {
+  return (
+    <>
+      <div className="vs-ambient vs-ambient--scan" />
+      <div className="vs-ambient vs-ambient--vignette" />
+      <div className="vs-ambient vs-ambient--noise" />
+    </>
+  );
+}
+
+function PatientCard({ patient, state, dying, bpm }: { patient: Patient; state?: string; dying?: boolean; bpm?: number }) {
+  const initials = useMemo(() => (patient.name || patient.telegram_id || '?').slice(0, 2).toUpperCase(), [patient]);
+  const idTag = useMemo(() => {
+    // deterministic fake patient ID from telegram_id
+    let h = 5381;
+    const s = patient.telegram_id || patient.name || 'x';
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return (h % 9000 + 1000).toString();
+  }, [patient]);
+  // Breathing tied to BPM: long inhale ~ 4 beats, exhale ~ 4 beats
+  const breathSec = bpm ? Math.max(2, (60 / bpm) * 8) : 4;
+  return (
+    <div
+      className={`vs-patient ${dying ? 'is-dying' : ''} ${state === 'critical' ? 'is-critical' : ''}`}
+      style={{ ['--vs-breath' as any]: `${breathSec}s` }}
+    >
+      <div className="vs-patient__brackets" aria-hidden>
+        <span /><span /><span /><span />
+      </div>
+      <div className="vs-patient__sticker">
+        <div className="vs-patient__stickerRow"><span>PID</span><b>VS-{idTag}</b></div>
+        <div className="vs-patient__stickerRow"><span>WARD</span><b>03 / DREAM</b></div>
+      </div>
+      <div className="vs-patient__iv" aria-hidden>
+        <div className="vs-patient__ivLine" />
+        <div className="vs-patient__ivDrop" />
+      </div>
       <div className="vs-patient__frame">
         {patient.head_url ? (
-          <img src={patient.head_url} alt="" draggable={false} />
+          <img src={patient.head_url} alt="" draggable={false} referrerPolicy="no-referrer" />
         ) : (
           <div className="vs-patient__placeholder">{initials}</div>
         )}
         <div className="vs-patient__scan" />
+        <div className="vs-patient__gridOverlay" />
       </div>
       <div className="vs-patient__name">@{patient.name || patient.telegram_id}</div>
     </div>
@@ -312,33 +448,63 @@ function TapFeedback({ quality, totalTaps }: { quality: ReturnType<typeof useHea
 }
 
 function Certificate({
-  patient, lifeSeconds, bestCombo, statusCause, score,
-  certificate, morgueUrl, generating, onRestart, onWall,
+  patient, lifeSeconds, bestCombo, outcome, score,
+  certificate, morgueUrl, generating, certError, imageError,
+  onRestart, onWall,
 }: {
   patient: Patient;
   lifeSeconds: number;
   bestCombo: number;
-  statusCause: string;
+  outcome: 'flatline' | 'vfib' | 'survived';
   score: number;
   certificate: DCert | null;
   morgueUrl: string | null;
   generating: boolean;
+  certError: string | null;
+  imageError: string | null;
   onRestart: () => void;
   onWall: () => void;
 }) {
+  const isSurvived = outcome === 'survived';
+  const statusCause =
+    outcome === 'vfib' ? 'V-fib' :
+    outcome === 'flatline' ? 'asystole' :
+    'released';
+
+  // Build cert fields with fallbacks on API failure so we never stay
+  // stuck at "drafting…"
+  const fallbackCert: DCert = isSurvived
+    ? {
+        cause: 'admit dx: night-shift insomnia',
+        time_of_death: '05:12 AM',
+        last_words: 'tell whoever did that — thanks. weird hands.',
+        verdict: 'discharge cleared. ride out the morning slowly.',
+      }
+    : {
+        cause: 'the typewriter ribbon snapped',
+        time_of_death: '03:47 AM',
+        last_words: 'I told you the espresso was fine.',
+        verdict: 'survived by their group chat.',
+      };
+  const finalCert = certificate ?? (certError && !generating ? fallbackCert : null);
+
   return (
-    <div className="vs vs--cert">
-      <div className="vs-cert__head">{t('cert.head')}</div>
+    <div className={`vs vs--cert ${isSurvived ? 'is-survived' : ''}`}>
+      <AmbientOverlay />
+      <div className="vs-cert__head">{isSurvived ? t('cert.head_survived') : t('cert.head')}</div>
       <div className="vs-cert__portrait">
-        <div className={`vs-cert__portraitFrame ${morgueUrl ? 'has-morgue' : ''}`}>
+        <div className={`vs-cert__portraitFrame ${morgueUrl ? 'has-morgue' : ''} ${isSurvived ? 'is-survived' : ''}`}>
           {morgueUrl ? (
-            <img src={morgueUrl} alt="morgue tag" draggable={false} />
+            <img src={morgueUrl} alt="" draggable={false} referrerPolicy="no-referrer" />
           ) : patient.head_url ? (
-            <img src={patient.head_url} alt="" className="vs-cert__avatarFallback" draggable={false} />
+            <img src={patient.head_url} alt="" className="vs-cert__avatarFallback" draggable={false} referrerPolicy="no-referrer" />
           ) : (
             <div className="vs-cert__avatarPlaceholder">{(patient.name || '?').slice(0, 2).toUpperCase()}</div>
           )}
           {!morgueUrl && generating && <div className="vs-cert__developing">{t('cert.developing')}</div>}
+          {!morgueUrl && !generating && imageError && (
+            <div className="vs-cert__cameraOffline">{t('cert.camera_offline')}</div>
+          )}
         </div>
       </div>
       <div className="vs-cert__namePlate">@{patient.name || patient.telegram_id}</div>
@@ -351,27 +517,27 @@ function Certificate({
       <div className="vs-cert__divider" />
 
       <div className="vs-cert__field">
-        <div className="vs-cert__fieldLabel">{t('cert.cause')}</div>
-        <div className={`vs-cert__fieldValue ${!certificate && generating ? 'is-loading' : ''}`}>
-          {certificate?.cause ?? (generating ? t('cert.drafting') : '—')}
+        <div className="vs-cert__fieldLabel">{isSurvived ? t('cert.complaint') : t('cert.cause')}</div>
+        <div className={`vs-cert__fieldValue ${!finalCert && generating ? 'is-loading' : ''}`}>
+          {finalCert?.cause ?? (generating ? t('cert.drafting') : '—')}
         </div>
       </div>
       <div className="vs-cert__field">
-        <div className="vs-cert__fieldLabel">{t('cert.tod')}</div>
-        <div className={`vs-cert__fieldValue ${!certificate && generating ? 'is-loading' : ''}`}>
-          {certificate?.time_of_death ?? (generating ? '…' : '—')}
+        <div className="vs-cert__fieldLabel">{isSurvived ? t('cert.discharge_time') : t('cert.tod')}</div>
+        <div className={`vs-cert__fieldValue ${!finalCert && generating ? 'is-loading' : ''}`}>
+          {finalCert?.time_of_death ?? (generating ? '…' : '—')}
         </div>
       </div>
       <div className="vs-cert__field">
-        <div className="vs-cert__fieldLabel">{t('cert.last_words')}</div>
-        <div className={`vs-cert__fieldValue is-quote ${!certificate && generating ? 'is-loading' : ''}`}>
-          {certificate?.last_words ? `"${certificate.last_words}"` : (generating ? t('cert.listening') : '—')}
+        <div className="vs-cert__fieldLabel">{isSurvived ? t('cert.on_waking') : t('cert.last_words')}</div>
+        <div className={`vs-cert__fieldValue is-quote ${!finalCert && generating ? 'is-loading' : ''}`}>
+          {finalCert?.last_words ? `"${finalCert.last_words}"` : (generating ? t('cert.listening') : '—')}
         </div>
       </div>
       <div className="vs-cert__field">
-        <div className="vs-cert__fieldLabel">{t('cert.verdict')}</div>
-        <div className={`vs-cert__fieldValue is-italic ${!certificate && generating ? 'is-loading' : ''}`}>
-          {certificate?.verdict ?? (generating ? t('cert.pondering') : '—')}
+        <div className="vs-cert__fieldLabel">{isSurvived ? t('cert.discharge_verdict') : t('cert.verdict')}</div>
+        <div className={`vs-cert__fieldValue is-italic ${!finalCert && generating ? 'is-loading' : ''}`}>
+          {finalCert?.verdict ?? (generating ? t('cert.pondering') : '—')}
         </div>
       </div>
 

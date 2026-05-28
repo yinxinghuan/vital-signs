@@ -24,12 +24,19 @@ const EN = {
   'splash.demo': 'demo mode · run inside Aigram for real friends',
 
   'play.hint': 'TAP TO BEAT',
+  'play.release': 'RELEASE TO RECOVERY',
 
   'die.flatline': 'ASYSTOLE · NO PULSE',
   'die.vfib': 'CARDIAC ARREST · V-FIB',
 
   'cert.head': 'CERTIFICATE OF DEATH · DREAM-ER',
+  'cert.head_survived': 'DISCHARGE NOTE · DREAM-ER',
   'cert.developing': 'DEVELOPING…',
+  'cert.camera_offline': 'morgue camera offline.',
+  'cert.complaint': 'PRESENTING',
+  'cert.discharge_time': 'DISCH.',
+  'cert.on_waking': 'ON WAKING',
+  'cert.discharge_verdict': 'RELEASE NOTE',
   'cert.kept_alive': 'KEPT ALIVE',
   'cert.best_streak': 'BEST STREAK',
   'cert.score': 'SCORE',
@@ -63,12 +70,19 @@ const ZH: typeof EN = {
   'splash.demo': '演示模式 · 在 Aigram 内打开见真实好友',
 
   'play.hint': 'TAP TO BEAT',
+  'play.release': '放手让他出院',
 
   'die.flatline': 'ASYSTOLE · 无脉搏',
   'die.vfib': '心脏骤停 · V-FIB',
 
   'cert.head': '死亡证明 · 梦境急诊',
+  'cert.head_survived': '出院记录 · 梦境急诊',
   'cert.developing': '冲洗中…',
+  'cert.camera_offline': '太平间相机离线。',
+  'cert.complaint': '主诉',
+  'cert.discharge_time': '出院',
+  'cert.on_waking': '苏醒时',
+  'cert.discharge_verdict': '医嘱',
   'cert.kept_alive': 'KEPT ALIVE',
   'cert.best_streak': 'BEST STREAK',
   'cert.score': 'SCORE',

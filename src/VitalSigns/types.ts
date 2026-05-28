@@ -43,6 +43,7 @@ export interface FateRecord {
   verdict: string;
   morgueImageUrl: string | null;
   createdAt: number;
+  reactions?: { candle: number; salute: number; rest: number };
 }
 
 export interface VitalSignsSave {

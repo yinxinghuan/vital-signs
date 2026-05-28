@@ -11,7 +11,8 @@
 .vs {
   position: fixed;
   inset: 0;
-  background: @bg;
+  background:
+    radial-gradient(circle at 50% 30%, #0a1813 0%, #060809 60%, #030404 100%);
   color: @text;
   font-family: 'IBM Plex Mono', 'Menlo', monospace;
   overflow: hidden;
@@ -20,56 +21,252 @@
   flex-direction: column;
 }
 
+// ─── Ambient overlays ───────────────────────────────────
+.vs-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.vs-ambient--scan {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    fade(black, 24%) 3px,
+    transparent 4px
+  );
+  mix-blend-mode: multiply;
+  opacity: .55;
+}
+.vs-ambient--vignette {
+  background:
+    radial-gradient(120% 90% at 50% 45%, transparent 50%, fade(black, 60%) 100%);
+}
+.vs-ambient--noise {
+  background-image:
+    radial-gradient(circle at 0% 0%, fade(@trace, 4%) 0 1px, transparent 2px),
+    radial-gradient(circle at 67% 41%, fade(@trace, 3%) 0 1px, transparent 2px),
+    radial-gradient(circle at 33% 78%, fade(@trace, 3%) 0 1px, transparent 2px),
+    radial-gradient(circle at 89% 88%, fade(@trace, 3%) 0 1px, transparent 2px);
+  background-size: 6px 6px;
+  opacity: .35;
+}
+
+// ─── Status strip (top monitor rail) ────────────────────
+.vs-strip {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  padding: 0 10px;
+  gap: 4px;
+  background: linear-gradient(180deg, #0a1814 0%, #050706 100%);
+  border-bottom: 1px solid #162a22;
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  color: @text-dim;
+
+  &__cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    border-right: 1px dashed #142019;
+    &:last-child { border-right: none; }
+  }
+  &__code { color: @text; font-weight: 500; }
+  &__codeDim { color: @text-dim; font-size: 8.5px; }
+
+  &__alarm {
+    .vs-strip__code { color: @text-dim; }
+    .vs-strip__dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #2c1414;
+      box-shadow: inset 0 0 2px #491c1c;
+    }
+    &.is-on {
+      .vs-strip__code { color: @danger; }
+      .vs-strip__dot {
+        background: @danger;
+        box-shadow: 0 0 6px fade(@danger, 75%);
+        animation: vs-alarm-blink .6s ease-in-out infinite;
+      }
+    }
+  }
+  &.is-warn .vs-strip__code, .vs-strip__cell.is-warn .vs-strip__code { color: @warn; }
+  &.is-danger .vs-strip__code, .vs-strip__cell.is-danger .vs-strip__code { color: @danger; }
+  &.is-ok .vs-strip__code, .vs-strip__cell.is-ok .vs-strip__code { color: @trace; }
+
+  &__clock {
+    margin-left: auto;
+    color: @trace;
+    font-feature-settings: "tnum";
+    letter-spacing: .08em;
+    border-right: none !important;
+  }
+}
+@keyframes vs-alarm-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+
 // ─── Patient card ───────────────────────────────────────
 .vs-patient {
+  --vs-breath: 4s;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 0 0;
+  padding: 14px 0 0;
   transition: opacity .25s ease;
+  z-index: 2;
 
   &__frame {
     position: relative;
-    width: 138px;
-    height: 138px;
+    width: 116px;
+    height: 116px;
     border-radius: 50%;
     background: @bg-elev;
     border: 1px solid fade(@trace, 35%);
-    box-shadow: 0 0 24px fade(@trace, 12%), inset 0 0 18px fade(black, 70%);
+    box-shadow:
+      0 0 24px fade(@trace, 14%),
+      inset 0 0 18px fade(black, 70%),
+      inset 0 0 2px fade(@trace, 30%);
     overflow: hidden;
+    animation: vs-breathe var(--vs-breath) ease-in-out infinite;
   }
   img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.85) contrast(1.05); }
   &__placeholder {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 44px; letter-spacing: .15em;
-    color: @trace; opacity: .8;
+    font-size: 40px; letter-spacing: .15em;
+    color: @trace; opacity: .85;
   }
   &__scan {
     position: absolute; inset: 0;
     background:
-      linear-gradient(to bottom, transparent 0%, fade(@trace, 12%) 50%, transparent 100%);
-    background-size: 100% 70px;
+      linear-gradient(to bottom, transparent 0%, fade(@trace, 18%) 50%, transparent 100%);
+    background-size: 100% 64px;
     background-repeat: no-repeat;
-    animation: vs-scan 3s linear infinite;
+    animation: vs-scan 2.6s linear infinite;
     pointer-events: none;
     mix-blend-mode: screen;
   }
+  &__gridOverlay {
+    position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 5px, fade(@trace, 4%) 5px 6px),
+      repeating-linear-gradient(90deg, transparent 0 5px, fade(@trace, 3%) 5px 6px);
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
   &__name {
-    margin-top: 12px;
-    font-size: 13px;
-    letter-spacing: .12em;
+    margin-top: 10px;
+    font-size: 12px;
+    letter-spacing: .14em;
     color: @text-dim;
   }
+
+  // Corner brackets framing the portrait area
+  &__brackets {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140px;
+    height: 140px;
+    pointer-events: none;
+    span {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-color: fade(@trace, 50%);
+    }
+    span:nth-child(1) { top: 0; left: 0; border-top: 1px solid currentColor; border-left: 1px solid currentColor; color: fade(@trace, 50%); }
+    span:nth-child(2) { top: 0; right: 0; border-top: 1px solid currentColor; border-right: 1px solid currentColor; color: fade(@trace, 50%); }
+    span:nth-child(3) { bottom: 0; left: 0; border-bottom: 1px solid currentColor; border-left: 1px solid currentColor; color: fade(@trace, 50%); }
+    span:nth-child(4) { bottom: 0; right: 0; border-bottom: 1px solid currentColor; border-right: 1px solid currentColor; color: fade(@trace, 50%); }
+  }
+
+  // Patient ID sticker overlay (top-left)
+  &__sticker {
+    position: absolute;
+    left: 16px;
+    top: 12px;
+    background: fade(black, 65%);
+    border: 1px solid #142019;
+    padding: 4px 6px;
+    font-size: 8.5px;
+    letter-spacing: .12em;
+    color: @text-dim;
+    line-height: 1.4;
+    pointer-events: none;
+    &Row { display: flex; gap: 6px; align-items: baseline; }
+    span { color: @text-dim; }
+    b { color: @trace; font-weight: 500; }
+  }
+
+  // IV drip line (top-right, falling drop loop)
+  &__iv {
+    position: absolute;
+    right: 18px;
+    top: 14px;
+    width: 14px;
+    height: 86px;
+    pointer-events: none;
+    &Line {
+      position: absolute;
+      left: 7px;
+      top: 6px;
+      width: 1px;
+      bottom: 4px;
+      background: linear-gradient(180deg, fade(@trace, 0%) 0%, fade(@trace, 35%) 12%, fade(@trace, 35%) 90%, fade(@trace, 0%) 100%);
+    }
+    &Drop {
+      position: absolute;
+      left: 4px;
+      top: 0;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 40%, @trace, fade(@trace, 0%) 70%);
+      animation: vs-drip 3.4s ease-in infinite;
+    }
+  }
+
   &.is-critical &__frame {
     border-color: fade(@warn, 60%);
-    box-shadow: 0 0 26px fade(@warn, 22%), inset 0 0 18px fade(black, 70%);
+    box-shadow:
+      0 0 28px fade(@warn, 28%),
+      inset 0 0 18px fade(black, 70%);
+    animation:
+      vs-breathe var(--vs-breath) ease-in-out infinite,
+      vs-critical-glow 1.2s ease-in-out infinite;
   }
   &.is-dying { opacity: .55; }
   &.is-dying &__frame {
     filter: saturate(0) brightness(.6);
     border-color: fade(@danger, 60%);
+    animation: none;
   }
+}
+
+@keyframes vs-breathe {
+  0%, 100% { transform: scale(1); }
+  35%      { transform: scale(1.025); }
+  60%      { transform: scale(1.015); }
+}
+@keyframes vs-critical-glow {
+  0%, 100% { box-shadow: 0 0 26px fade(@warn, 22%), inset 0 0 18px fade(black, 70%); }
+  50%      { box-shadow: 0 0 36px fade(@warn, 45%), inset 0 0 18px fade(black, 70%); }
+}
+@keyframes vs-drip {
+  0%   { transform: translateY(0); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: .8; }
+  100% { transform: translateY(78px); opacity: 0; }
 }
 
 @keyframes vs-scan {
@@ -180,6 +377,42 @@
   overflow: hidden;
 }
 
+// Multi-channel bedside monitor wrap
+.vs__monitor {
+  margin: 0 14px;
+  border: 1px solid #16241d;
+  border-radius: 4px;
+  background: @bg;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+.vs__channel {
+  position: relative;
+  border-top: 1px dashed #142019;
+  &:first-child { border-top: none; }
+}
+.vs__channel--pleth { background: #030505; }
+.vs__channelLabel {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  display: flex;
+  gap: 10px;
+  font-size: 9.5px;
+  letter-spacing: .15em;
+  color: @text-dim;
+  z-index: 1;
+  pointer-events: none;
+  span:first-child { color: @trace; }
+}
+.vs__channelGain {
+  color: @text-dim;
+  font-feature-settings: "tnum";
+}
+
 // ─── Tap zone ──────────────────────────────────────────
 .vs__tapZone {
   flex: 1;
@@ -188,11 +421,29 @@
   align-items: center;
   justify-content: center;
   margin: 8px 14px 14px;
-  border: 1px dashed #163024;
+  border: 1px solid #163024;
   border-radius: 4px;
   background:
-    radial-gradient(120% 80% at 50% 40%, fade(@trace, 6%) 0%, transparent 60%),
+    radial-gradient(120% 80% at 50% 40%, fade(@trace, 9%) 0%, transparent 60%),
     @bg-elev;
+  overflow: hidden;
+  z-index: 1;
+}
+// Corner brackets accent on tap-zone
+.vs__tapZoneCorners {
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  span {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    color: fade(@trace, 40%);
+  }
+  span:nth-child(1) { top: 0; left: 0; border-top: 1px solid currentColor; border-left: 1px solid currentColor; }
+  span:nth-child(2) { top: 0; right: 0; border-top: 1px solid currentColor; border-right: 1px solid currentColor; }
+  span:nth-child(3) { bottom: 0; left: 0; border-bottom: 1px solid currentColor; border-left: 1px solid currentColor; }
+  span:nth-child(4) { bottom: 0; right: 0; border-bottom: 1px solid currentColor; border-right: 1px solid currentColor; }
 }
 .vs__tapHint {
   color: @text-dim;
@@ -256,11 +507,54 @@
 .vs--splash {
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 14px;
+  padding: 0 18px;
+}
+.vs-splash__topcard {
+  position: relative;
+  z-index: 2;
+}
+.vs-splash__demo {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid #16241d;
+  border-radius: 4px;
+  background: @bg;
+  overflow: hidden;
+  z-index: 2;
+}
+.vs-splash__demoLabel {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  display: flex;
+  gap: 10px;
+  font-size: 9.5px;
+  letter-spacing: .15em;
+  color: @text-dim;
+  z-index: 1;
+  pointer-events: none;
+  span:first-child { color: @trace; }
+}
+.vs-splash__demoBpm {
+  color: @warn;
+  font-feature-settings: "tnum";
+}
+.vs-splash__demoRing {
+  position: absolute;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid fade(@trace, 35%);
+  bottom: 14px;
+  right: 14px;
+  animation: vs-target-pulse 1000ms ease-in-out infinite;
 }
 .vs-splash__instructions {
   text-align: center;
-  margin-top: 12px;
+  margin-top: 4px;
+  z-index: 2;
+  position: relative;
 }
 .vs-splash__line {
   font-size: 12px;
@@ -608,6 +902,107 @@
     letter-spacing: .1em;
   }
   &__by, &__time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__mine {
+    color: @accent;
+    font-weight: 500;
+    letter-spacing: .2em;
+  }
+
+  &.is-mine {
+    border-color: fade(@accent, 35%);
+    box-shadow: inset 0 0 0 1px fade(@accent, 12%);
+  }
+
+  &__reactRow {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #142019;
+  }
+}
+
+// ─── Reaction buttons ──────────────────────────────────
+.vs-react {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid #1f2e26;
+  border-radius: 2px;
+  color: @text-dim;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: .12em;
+  cursor: pointer;
+  transition: color .14s ease, background .14s ease, border-color .14s ease;
+
+  &:active { background: fade(@trace, 10%); }
+  &:disabled { cursor: default; }
+
+  &--candle { &.is-tapped { color: @warn; border-color: fade(@warn, 50%); background: fade(@warn, 8%); } }
+  &--salute { &.is-tapped { color: @trace; border-color: fade(@trace, 55%); background: fade(@trace, 8%); } }
+  &--rest   { &.is-tapped { color: @accent; border-color: fade(@accent, 55%); background: fade(@accent, 8%); } }
+
+  &__count { font-feature-settings: "tnum"; }
+}
+
+// ─── Release button (eligible when patient stabilizes) ─
+.vs__release {
+  position: absolute;
+  bottom: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, fade(@trace, 25%) 0%, fade(@trace, 10%) 100%);
+  border: 1px solid fade(@trace, 70%);
+  color: @trace;
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: .3em;
+  padding: 10px 22px;
+  cursor: pointer;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 24px fade(@trace, 35%), inset 0 0 12px fade(@trace, 20%);
+  animation: vs-release-glow 1.6s ease-in-out infinite;
+  &:active { background: fade(@trace, 30%); }
+}
+.vs__releaseDot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: @trace;
+  box-shadow: 0 0 8px @trace;
+  animation: vs-pulse 1s ease-in-out infinite;
+}
+@keyframes vs-release-glow {
+  0%, 100% { box-shadow: 0 0 14px fade(@trace, 20%), inset 0 0 8px fade(@trace, 12%); }
+  50%      { box-shadow: 0 0 28px fade(@trace, 50%), inset 0 0 16px fade(@trace, 24%); }
+}
+
+// Camera-offline placeholder on cert portrait
+.vs-cert__cameraOffline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+  color: fade(@danger, 80%);
+  font-size: 10px;
+  letter-spacing: .15em;
+  background: linear-gradient(180deg, transparent 0%, fade(black, 40%) 100%);
+}
+
+// Survived certificate variants — softer pink-orange palette
+.vs--cert.is-survived {
+  background: radial-gradient(circle at 50% 30%, #1a1108 0%, #08070a 70%);
+}
+.vs-cert__portraitFrame.is-survived {
+  border-color: fade(@accent, 50%);
+  box-shadow: 0 0 26px fade(@accent, 22%), inset 0 0 18px fade(black, 60%);
+  img { filter: saturate(1.05) brightness(1.05) contrast(1) !important; }
 }
 
 // ─── Loading / Empty states ────────────────────────────

@@ -6,6 +6,7 @@
 // Both stream in independently. UI can render whichever lands first.
 
 import { useCallback, useRef, useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useChat, useGenImage } from '@shared/runtime';
 import type { Patient } from '../types';
 
@@ -16,6 +17,8 @@ export interface DeathCertificate {
   verdict: string;
 }
 
+export type Outcome = 'flatline' | 'vfib' | 'survived';
+
 export interface UseDeathCertificate {
   certificate: DeathCertificate | null;
   morgueUrl: string | null;
@@ -25,13 +28,13 @@ export interface UseDeathCertificate {
   generate: (input: {
     patient: Patient;
     lifeSeconds: number;
-    cause: 'flatline' | 'vfib';
+    outcome: Outcome;
     bestCombo: number;
   }) => Promise<void>;
   reset: () => void;
 }
 
-const SYSTEM_PROMPT =
+const DEATH_SYSTEM_PROMPT =
   `You are an exhausted ER night-shift attending writing a death certificate ` +
   `as a deadpan, slightly bitter AlterU After Dark monologue. Treat this as ` +
   `fiction inside the player's dream — the patient is not really dead. ` +
@@ -47,6 +50,21 @@ const SYSTEM_PROMPT =
   `verdict ≤ 100 chars, one-line dry ruling from the attending ` +
   `(e.g. "Survived by their group chat. Patient ID retired with honors.").`;
 
+const DISCHARGE_SYSTEM_PROMPT =
+  `You are an exhausted ER night-shift attending writing a DISCHARGE NOTE ` +
+  `for a patient who pulled through the night — AlterU After Dark, deadpan, ` +
+  `quietly fond, a little ribbing. Treat as fiction inside the player's dream. ` +
+  `Reply with ONLY valid JSON, no markdown. ` +
+  `Schema: {"cause": string, "time_of_death": string, "last_words": string, "verdict": string}. ` +
+  `Reuse the same field names but reinterpret them as discharge fields: ` +
+  `cause ≤ 60 chars = the "presenting complaint" they came in with, vaguely funny ` +
+  `(e.g. "narrative-induced tachycardia · 03:11", "acute imposter syndrome"). ` +
+  `time_of_death is "hh:mm AM/PM" — re-frame as discharge time, between 4 AM and 6 AM. ` +
+  `last_words ≤ 90 chars, in the patient's first person ON WAKING ` +
+  `(e.g. "Did I make it? I dreamed someone was tapping on my chest."). ` +
+  `verdict ≤ 100 chars, the attending's one-line release ruling ` +
+  `(e.g. "Cleared to vibe. Recommend two days of yogurt and silence.").`;
+
 const MORGUE_PROMPT =
   `Cold morgue tag portrait of the same subject from the reference image. ` +
   `Closed eyes, pale composed expression, dignified. ` +
@@ -54,6 +72,14 @@ const MORGUE_PROMPT =
   `soft top-down shadow, slight teal vignette. ` +
   `Faintly visible string-tag with crinkled card pinned at the shoulder. ` +
   `Editorial mood photograph, AlterU After Dark, no text in image, no captions.`;
+
+const DISCHARGE_PROMPT =
+  `Soft hospital recovery portrait of the same subject from the reference image. ` +
+  `Eyes barely open, calm composed expression, color returning to their face. ` +
+  `Warm dawn light from a hospital window slatted through blinds, off-white sheets, ` +
+  `IV taken out, small bandage at the wrist visible. ` +
+  `Editorial mood photograph, gentle warmth, AlterU After Dark soft-tone variant, ` +
+  `no text in image, no captions.`;
 
 function extractJson(raw: string): DeathCertificate | null {
   // Strip potential code fences and find the outermost JSON object
@@ -78,7 +104,12 @@ function extractJson(raw: string): DeathCertificate | null {
 }
 
 export function useDeathCertificate(): UseDeathCertificate {
-  const { send: sendChat } = useChat({ system: SYSTEM_PROMPT, maxHistory: 0 });
+  // We swap the system prompt per call by constructing a fresh useChat
+  // instance for death vs discharge. Since useChat caches the system in
+  // closure, we instead pass system inside `send` via re-init — but for
+  // simplicity we keep a single useChat with no system, and prepend the
+  // chosen system as a user-flavor instruction in the prompt itself.
+  const { send: sendChat } = useChat({ maxHistory: 0 });
   const { generate: callGenImage } = useGenImage();
 
   const [certificate, setCertificate] = useState<DeathCertificate | null>(null);
@@ -97,10 +128,10 @@ export function useDeathCertificate(): UseDeathCertificate {
     inFlightId.current += 1;
   }, []);
 
-  const generate = useCallback(async ({ patient, lifeSeconds, cause, bestCombo }: {
+  const generate = useCallback(async ({ patient, lifeSeconds, outcome, bestCombo }: {
     patient: Patient;
     lifeSeconds: number;
-    cause: 'flatline' | 'vfib';
+    outcome: Outcome;
     bestCombo: number;
   }) => {
     inFlightId.current += 1;
@@ -111,10 +142,18 @@ export function useDeathCertificate(): UseDeathCertificate {
     setCertificate(null);
     setMorgueUrl(null);
 
-    const causeWord = cause === 'vfib' ? 'V-fib / cardiac arrest' : 'asystole / flatline';
+    const isSurvived = outcome === 'survived';
+    const causeWord =
+      outcome === 'vfib' ? 'V-fib / cardiac arrest' :
+      outcome === 'flatline' ? 'asystole / flatline' :
+      'discharge after sustained pulse capture';
+
+    const systemPrompt = isSurvived ? DISCHARGE_SYSTEM_PROMPT : DEATH_SYSTEM_PROMPT;
+    const imagePrompt = isSurvived ? DISCHARGE_PROMPT : MORGUE_PROMPT;
 
     const userPrompt =
-      `Write a death certificate for the dream-ER record.\n` +
+      `${systemPrompt}\n\n` +
+      `${isSurvived ? 'Write a discharge note' : 'Write a death certificate'} for the dream-ER record.\n` +
       `Patient kept alive: ${Math.floor(lifeSeconds)} seconds.\n` +
       `Best heartbeat streak: ${bestCombo}.\n` +
       `Final rhythm: ${causeWord}.\n` +
@@ -136,7 +175,7 @@ export function useDeathCertificate(): UseDeathCertificate {
       });
 
     const imgPromise = patient.head_url
-      ? callGenImage({ prompt: MORGUE_PROMPT, ref_url: patient.head_url })
+      ? callGenImage({ prompt: imagePrompt, ref_url: patient.head_url })
           .then((url) => {
             if (inFlightId.current !== myId) return;
             setMorgueUrl(url);
