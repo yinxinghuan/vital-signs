@@ -1,0 +1,676 @@
+@bg: #040605;
+@bg-elev: #0a0e0d;
+@trace: #7fffaf;
+@trace-dim: #1f8a5a;
+@warn: #ffb347;
+@danger: #ff5252;
+@text: #d8e6dc;
+@text-dim: #5e7368;
+@accent: #f5b1c7;
+
+.vs {
+  position: fixed;
+  inset: 0;
+  background: @bg;
+  color: @text;
+  font-family: 'IBM Plex Mono', 'Menlo', monospace;
+  overflow: hidden;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+}
+
+// ─── Patient card ───────────────────────────────────────
+.vs-patient {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0 0;
+  transition: opacity .25s ease;
+
+  &__frame {
+    position: relative;
+    width: 138px;
+    height: 138px;
+    border-radius: 50%;
+    background: @bg-elev;
+    border: 1px solid fade(@trace, 35%);
+    box-shadow: 0 0 24px fade(@trace, 12%), inset 0 0 18px fade(black, 70%);
+    overflow: hidden;
+  }
+  img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.85) contrast(1.05); }
+  &__placeholder {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px; letter-spacing: .15em;
+    color: @trace; opacity: .8;
+  }
+  &__scan {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to bottom, transparent 0%, fade(@trace, 12%) 50%, transparent 100%);
+    background-size: 100% 70px;
+    background-repeat: no-repeat;
+    animation: vs-scan 3s linear infinite;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+  &__name {
+    margin-top: 12px;
+    font-size: 13px;
+    letter-spacing: .12em;
+    color: @text-dim;
+  }
+  &.is-critical &__frame {
+    border-color: fade(@warn, 60%);
+    box-shadow: 0 0 26px fade(@warn, 22%), inset 0 0 18px fade(black, 70%);
+  }
+  &.is-dying { opacity: .55; }
+  &.is-dying &__frame {
+    filter: saturate(0) brightness(.6);
+    border-color: fade(@danger, 60%);
+  }
+}
+
+@keyframes vs-scan {
+  0%   { background-position: 0 -70px; }
+  100% { background-position: 0 100%; }
+}
+
+// ─── HUD ────────────────────────────────────────────────
+.vs-hud {
+  margin: 12px 14px 6px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #0c1310 0%, #07090a 100%);
+  border: 1px solid #16241d;
+  border-radius: 4px;
+  font-size: 11px;
+  letter-spacing: .12em;
+
+  &__label { color: @text-dim; font-size: 9.5px; }
+  &__top, &__bottom {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  &__top { margin-bottom: 8px; }
+  &__patient { display: flex; flex-direction: column; gap: 2px; }
+  &__patientName { color: @trace; font-weight: 500; }
+  &__time { display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+  &__timeVal { color: @text; font-weight: 500; }
+
+  &__main {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.4fr;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    border-top: 1px dashed #16241d;
+    border-bottom: 1px dashed #16241d;
+  }
+  &__bpm { text-align: left; }
+  &__bpmLabel { color: @text-dim; font-size: 9.5px; }
+  &__bpmValue {
+    font-size: 38px;
+    line-height: 1;
+    color: @trace;
+    font-weight: 600;
+    letter-spacing: 0;
+    transition: color .2s;
+  }
+  &__bpmUnit { color: @text-dim; font-size: 9.5px; margin-top: -2px; }
+
+  &__targetWrap {
+    text-align: center;
+    border-left: 1px solid #16241d;
+    border-right: 1px solid #16241d;
+    padding: 0 8px;
+  }
+  &__targetLabel { color: @text-dim; font-size: 9.5px; }
+  &__target {
+    font-size: 24px;
+    color: @warn;
+    line-height: 1.2;
+    margin-top: 2px;
+  }
+
+  &__vitalsCol {
+    display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+  }
+  &__vital { display: flex; gap: 8px; }
+  &__vitalVal { color: @text; font-weight: 500; }
+
+  &__bottom { margin-top: 8px; }
+  &__score { display: flex; flex-direction: column; gap: 2px; }
+  &__scoreVal { color: @text; font-weight: 600; font-size: 13px; letter-spacing: .08em; }
+  &__combo {
+    color: @accent;
+    font-size: 18px;
+    font-weight: 600;
+    animation: vs-pulse 1s ease-in-out infinite;
+  }
+  &__event { color: @warn; font-size: 11px; letter-spacing: .14em; }
+
+  &.is-critical {
+    border-color: @warn;
+    animation: vs-critical-pulse 1.2s ease-in-out infinite;
+  }
+  &.is-critical &__bpmValue { color: @warn; }
+  &.is-lethal {
+    border-color: @danger;
+    background: linear-gradient(180deg, #1a0808 0%, #07090a 100%);
+  }
+  &.is-lethal &__bpmValue { color: @danger; }
+}
+
+@keyframes vs-critical-pulse {
+  0%, 100% { background-color: #0c1310; }
+  50%      { background-color: #1f1810; }
+}
+
+@keyframes vs-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.07); }
+}
+
+// ─── ECG strip ─────────────────────────────────────────
+.vs__ecg {
+  margin: 0 14px;
+  border: 1px solid #16241d;
+  border-radius: 4px;
+  background: @bg;
+  overflow: hidden;
+}
+
+// ─── Tap zone ──────────────────────────────────────────
+.vs__tapZone {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px 14px 14px;
+  border: 1px dashed #163024;
+  border-radius: 4px;
+  background:
+    radial-gradient(120% 80% at 50% 40%, fade(@trace, 6%) 0%, transparent 60%),
+    @bg-elev;
+}
+.vs__tapHint {
+  color: @text-dim;
+  font-size: 12px;
+  letter-spacing: .25em;
+  animation: vs-hint 1.5s ease-in-out infinite;
+  z-index: 2;
+  position: relative;
+}
+
+// Target metronome cue — pulses at target BPM
+.vs-target {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1.5px solid fade(@trace, 30%);
+  pointer-events: none;
+  animation: vs-target-pulse 1s ease-in-out infinite;
+  z-index: 1;
+  &.is-lethal { display: none; }
+}
+
+@keyframes vs-target-pulse {
+  0%   { transform: scale(.4); border-color: fade(@trace, 0%); }
+  35%  { transform: scale(.6); border-color: fade(@trace, 55%); }
+  60%  { transform: scale(1.05); border-color: fade(@trace, 20%); }
+  100% { transform: scale(1.6); border-color: fade(@trace, 0%); }
+}
+
+@keyframes vs-hint {
+  0%, 100% { opacity: .35; }
+  50%      { opacity: 1; }
+}
+
+.vs__feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: .15em;
+  transform: translate(-50%, -50%);
+  animation: vs-flash 380ms ease-out forwards;
+  pointer-events: none;
+
+  &--perfect { color: @trace; text-shadow: 0 0 14px fade(@trace, 55%); }
+  &--good    { color: @text; text-shadow: 0 0 10px fade(@text, 45%); }
+  &--early   { color: @warn; text-shadow: 0 0 10px fade(@warn, 45%); }
+  &--late    { color: @warn; text-shadow: 0 0 10px fade(@warn, 45%); }
+  &--off     { color: @danger; text-shadow: 0 0 10px fade(@danger, 45%); }
+}
+
+@keyframes vs-flash {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  35%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -56%) scale(1); }
+}
+
+// ─── Splash ────────────────────────────────────────────
+.vs--splash {
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.vs-splash__instructions {
+  text-align: center;
+  margin-top: 12px;
+}
+.vs-splash__line {
+  font-size: 12px;
+  letter-spacing: .25em;
+  color: @text-dim;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  margin: 2px 0;
+}
+.vs-splash__cta {
+  position: relative;
+  margin-top: 24px;
+  padding: 16px 36px;
+}
+.vs-splash__ctaText {
+  position: relative;
+  z-index: 1;
+  font-size: 14px;
+  letter-spacing: .35em;
+  color: @trace;
+  animation: vs-hint 1.4s ease-in-out infinite;
+}
+.vs-splash__ctaPulse {
+  position: absolute; inset: 0;
+  border: 1px solid fade(@trace, 35%);
+  border-radius: 2px;
+  animation: vs-ring 1.8s ease-out infinite;
+}
+@keyframes vs-ring {
+  0%   { box-shadow: 0 0 0 0 fade(@trace, 25%); }
+  100% { box-shadow: 0 0 0 16px fade(@trace, 0%); }
+}
+
+// ─── Dying ─────────────────────────────────────────────
+.vs--dying {
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.vs-dying__msg {
+  color: @danger;
+  font-size: 18px;
+  letter-spacing: .3em;
+  font-weight: 600;
+  animation: vs-pulse 0.7s ease-in-out infinite;
+}
+
+// ─── Certificate ───────────────────────────────────────
+.vs--cert {
+  align-items: center;
+  padding: 18px 20px 80px;
+  gap: 6px;
+  overflow-y: auto;
+}
+.vs-cert__head {
+  font-size: 10px;
+  letter-spacing: .35em;
+  color: @text-dim;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  margin-bottom: 10px;
+}
+.vs-cert__portrait { width: 100%; display: flex; justify-content: center; }
+.vs-cert__portraitFrame {
+  width: 160px;
+  height: 200px;
+  position: relative;
+  background: #0a0d0c;
+  border: 1px solid #16241d;
+  overflow: hidden;
+  box-shadow: 0 0 24px fade(black, 80%);
+  img {
+    width: 100%; height: 100%; object-fit: cover;
+    filter: saturate(.5) brightness(.85) contrast(.95);
+  }
+  .vs-cert__avatarFallback { filter: grayscale(1) brightness(.6) contrast(.85); }
+  .vs-cert__avatarPlaceholder {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: @text-dim; font-size: 56px; letter-spacing: .1em;
+  }
+}
+.vs-cert__developing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+  color: fade(@trace, 60%);
+  font-size: 10px;
+  letter-spacing: .25em;
+  background:
+    linear-gradient(180deg, transparent 0%, fade(black, 30%) 70%, fade(black, 65%) 100%),
+    repeating-linear-gradient(0deg, transparent 0 2px, fade(black, 25%) 2px 3px);
+  animation: vs-hint 1.4s ease-in-out infinite;
+}
+.vs-cert__namePlate {
+  margin: 8px 0 4px;
+  color: @trace;
+  font-size: 12px;
+  letter-spacing: .15em;
+}
+.vs-cert__row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 11px;
+  letter-spacing: .12em;
+  border-bottom: 1px dashed #16241d;
+  span { color: @text-dim; }
+  b { color: @text; font-weight: 500; }
+}
+.vs-cert__divider {
+  width: 100%;
+  height: 0;
+  border-top: 1px solid #1a2b22;
+  margin: 12px 0 8px;
+}
+.vs-cert__field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 0;
+  border-bottom: 1px dashed #142019;
+}
+.vs-cert__fieldLabel {
+  color: @text-dim;
+  font-size: 9.5px;
+  letter-spacing: .25em;
+}
+.vs-cert__fieldValue {
+  color: @text;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: .04em;
+  &.is-quote { color: @text; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 15px; }
+  &.is-italic { color: fade(@trace, 85%); font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 14px; }
+  &.is-loading {
+    color: @text-dim;
+    animation: vs-hint 1.2s ease-in-out infinite;
+  }
+}
+.vs-cert__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  width: 100%;
+  justify-content: center;
+}
+.vs-cert__btn {
+  background: transparent;
+  border: 1px solid fade(@trace, 60%);
+  color: @trace;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: .26em;
+  padding: 12px 22px;
+  cursor: pointer;
+  &:active { background: fade(@trace, 10%); }
+  &--ghost {
+    border-color: fade(@text-dim, 60%);
+    color: @text-dim;
+  }
+}
+
+// ─── Wall ──────────────────────────────────────────────
+.vs--wallphase {
+  display: block;
+  overflow: hidden;
+}
+.vs-wall {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: @bg;
+  overflow: hidden;
+}
+.vs-wall__topbar {
+  flex: 0 0 auto;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid #16241d;
+  background: linear-gradient(180deg, #0a1310 0%, #07090a 100%);
+  position: relative;
+}
+.vs-wall__back {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  background: transparent;
+  border: none;
+  color: @text-dim;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: .12em;
+  cursor: pointer;
+  &:active { color: @trace; }
+}
+.vs-wall__title {
+  text-align: center;
+  color: @trace;
+  font-size: 13px;
+  letter-spacing: .35em;
+}
+.vs-wall__sub {
+  text-align: center;
+  margin-top: 3px;
+  color: @text-dim;
+  font-size: 10px;
+  letter-spacing: .25em;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+}
+
+.vs-wall__list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vs-wall__skeleton {
+  height: 130px;
+  border-radius: 4px;
+  background:
+    linear-gradient(90deg, #0a1310 0%, #142019 50%, #0a1310 100%);
+  background-size: 200% 100%;
+  animation: vs-shimmer 1.6s linear infinite;
+  border: 1px solid #142019;
+}
+@keyframes vs-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.vs-wall__empty {
+  text-align: center;
+  margin-top: 28vh;
+  color: @text-dim;
+  font-size: 12px;
+  letter-spacing: .12em;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+}
+.vs-wall__emptyHint {
+  margin-top: 6px;
+  color: fade(@danger, 60%);
+}
+
+// ─── Fate card ─────────────────────────────────────────
+.vs-fate {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, #0a1310 0%, #060807 100%);
+  border: 1px solid #16241d;
+  border-radius: 3px;
+
+  &__portrait {
+    position: relative;
+    width: 96px;
+    height: 120px;
+    background: #07090a;
+    border: 1px solid #16241d;
+    overflow: hidden;
+    img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.5) contrast(.95); }
+    .vs-fate__avatarFallback { filter: grayscale(1) brightness(.6); }
+  }
+  &__placeholder {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: @text-dim; font-size: 32px; letter-spacing: .1em;
+  }
+  &__badge {
+    position: absolute;
+    bottom: 4px; left: 4px; right: 4px;
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: .22em;
+    padding: 2px 0;
+    background: fade(@danger, 75%);
+    color: white;
+    &.is-survived { background: fade(@trace, 75%); color: #07090a; }
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  &__nameRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+  &__name {
+    color: @trace;
+    font-size: 12px;
+    letter-spacing: .1em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__life {
+    color: @text-dim;
+    font-size: 10px;
+    letter-spacing: .12em;
+    flex-shrink: 0;
+  }
+  &__cause {
+    color: @warn;
+    font-size: 11px;
+    letter-spacing: .04em;
+    line-height: 1.3;
+  }
+  &__quote {
+    color: @text;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  &__verdict {
+    color: fade(@trace, 80%);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  &__footer {
+    margin-top: 4px;
+    display: flex;
+    justify-content: space-between;
+    color: @text-dim;
+    font-size: 9.5px;
+    letter-spacing: .1em;
+  }
+  &__by, &__time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+// ─── Loading / Empty states ────────────────────────────
+.vs--loading {
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.vs-loading__pulse {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  border: 2px solid fade(@trace, 25%);
+  border-top-color: @trace;
+  animation: vs-spin 1.4s linear infinite;
+}
+@keyframes vs-spin {
+  to { transform: rotate(360deg); }
+}
+.vs-loading__txt {
+  color: @text-dim;
+  font-size: 11px;
+  letter-spacing: .3em;
+}
+
+.vs--empty {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+.vs-empty__head {
+  color: @warn;
+  font-size: 14px;
+  letter-spacing: .3em;
+  margin-bottom: 12px;
+}
+.vs-empty__sub {
+  color: @text-dim;
+  font-size: 12px;
+  letter-spacing: .12em;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+}
+
+.vs-splash__demoTag {
+  position: absolute;
+  bottom: 30px;
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: @text-dim;
+  opacity: .5;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+}
+
+// ─── Watermark ─────────────────────────────────────────
+.vs__watermark {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 16px;
+  opacity: .25;
+  pointer-events: none;
+}
