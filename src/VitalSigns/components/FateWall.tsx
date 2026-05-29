@@ -55,6 +55,18 @@ function fmtTimeAgo(ts: number): string {
   return `${d}d ago`;
 }
 
+function pickFatePortrait(f: WallEntry['fate']): string | null {
+  // Prefer the AI ER portrait matching the outcome — we spent tokens on it
+  // already, give it the spotlight. Cascade through lower tiers if the
+  // matching one didn't land, then morgue/discharge stamp, then avatar.
+  const er = f.erPortraits;
+  if (f.outcome === 'vfib' || f.outcome === 'flatline') {
+    return er?.lethal ?? er?.critical ?? er?.stable ?? f.morgueImageUrl ?? f.patientAvatarUrl ?? null;
+  }
+  // outcome === 'survived'
+  return er?.stable ?? er?.critical ?? f.morgueImageUrl ?? f.patientAvatarUrl ?? null;
+}
+
 function FateCard({ entry }: { entry: WallEntry }) {
   const f = entry.fate;
   const causeBadge = f.outcome === 'vfib' ? 'V-FIB' : f.outcome === 'survived' ? 'SURVIVED' : 'ASYSTOLE';
@@ -80,16 +92,27 @@ function FateCard({ entry }: { entry: WallEntry }) {
     });
   }, [tapped, event, entry.byUserId, f.id, f.outcome]);
 
+  const portraitUrl = pickFatePortrait(f);
+  const hasMorgueStamp = !!f.morgueImageUrl && f.morgueImageUrl !== portraitUrl;
+
   return (
     <div className={`vs-fate ${badgeClass} ${mine ? 'is-mine' : ''}`}>
       <div className="vs-fate__portrait">
-        {f.morgueImageUrl ? (
-          <img src={f.morgueImageUrl} alt="" draggable={false} referrerPolicy="no-referrer" />
-        ) : f.patientAvatarUrl ? (
-          <img src={f.patientAvatarUrl} alt="" className="vs-fate__avatarFallback" draggable={false} referrerPolicy="no-referrer" />
+        {portraitUrl ? (
+          <img src={portraitUrl} alt="" draggable={false} referrerPolicy="no-referrer" />
         ) : (
           <div className="vs-fate__placeholder">{(f.patientName || '?').slice(0, 2).toUpperCase()}</div>
         )}
+        {hasMorgueStamp && (
+          <img
+            src={f.morgueImageUrl!}
+            alt=""
+            className="vs-fate__stamp"
+            draggable={false}
+            referrerPolicy="no-referrer"
+          />
+        )}
+        <div className="vs-fate__scan" aria-hidden />
         <div className={`vs-fate__badge ${badgeClass}`}>{causeBadge}</div>
       </div>
       <div className="vs-fate__body">

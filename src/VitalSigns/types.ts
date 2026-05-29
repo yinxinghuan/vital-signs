@@ -42,6 +42,13 @@ export interface FateRecord {
   timeOfDeath: string;
   verdict: string;
   morgueImageUrl: string | null;
+  /** AI resuscitation portraits gen'd during play. Persisted so we don't
+   *  re-spend tokens on rewatch + so the Fate Wall has a richer visual. */
+  erPortraits?: {
+    stable: string | null;
+    critical: string | null;
+    lethal: string | null;
+  };
   createdAt: number;
   reactions?: { candle: number; salute: number; rest: number };
 }

@@ -22,6 +22,7 @@ const EN = {
   'splash.line2': 'their pulse is in your finger',
   'splash.cta': 'TAP TO BEGIN',
   'splash.demo': 'demo mode · run inside Aigram for real friends',
+  'splash.view_ward': 'VIEW THE WARD →',
 
   'play.hint': 'TAP TO BEAT',
   'play.release': 'RELEASE TO RECOVERY',
@@ -68,6 +69,7 @@ const ZH: typeof EN = {
   'splash.line2': '他们的脉搏在你指尖',
   'splash.cta': 'TAP TO BEGIN',
   'splash.demo': '演示模式 · 在 Aigram 内打开见真实好友',
+  'splash.view_ward': '看病房 →',
 
   'play.hint': 'TAP TO BEAT',
   'play.release': '放手让他出院',

@@ -159,6 +159,11 @@ export default function VitalSigns() {
       timeOfDeath: cert.certificate.time_of_death,
       verdict: cert.certificate.verdict,
       morgueImageUrl: cert.morgueUrl,
+      erPortraits: {
+        stable:   portraits.variants.stable,
+        critical: portraits.variants.critical,
+        lethal:   portraits.variants.lethal,
+      },
       createdAt: Date.now(),
       reactions: { candle: 0, salute: 0, rest: 0 },
     };
@@ -172,21 +177,41 @@ export default function VitalSigns() {
     save.persist(next);
   }, [phase, patient, cert.certificate, cert.morgueUrl, state.lifeSeconds, state.score, state.bestCombo, state.status, save]);
 
-  // When the morgue image lands AFTER persistence, patch the freshest record.
+  // When the morgue image OR any ER portrait variant lands AFTER persistence,
+  // patch the freshest record in place — we don't want token-spent images
+  // dropped on the floor.
   useEffect(() => {
-    if (!cert.morgueUrl || !persistedFateRef.current || !save.savedData) return;
+    if (!persistedFateRef.current || !save.savedData) return;
     const top = save.savedData.history[0];
     if (!top || top.id !== persistedFateRef.current) return;
-    if (top.morgueImageUrl) return;
+
+    const liveER = {
+      stable:   portraits.variants.stable,
+      critical: portraits.variants.critical,
+      lethal:   portraits.variants.lethal,
+    };
+    const storedER = top.erPortraits;
+    const erDelta =
+      storedER?.stable   !== liveER.stable   ||
+      storedER?.critical !== liveER.critical ||
+      storedER?.lethal   !== liveER.lethal;
+    const morgueDelta = !top.morgueImageUrl && cert.morgueUrl;
+
+    if (!erDelta && !morgueDelta) return;
+
     const updated: VitalSignsSave = {
       ...save.savedData,
       history: [
-        { ...top, morgueImageUrl: cert.morgueUrl },
+        {
+          ...top,
+          morgueImageUrl: top.morgueImageUrl ?? cert.morgueUrl,
+          erPortraits: liveER,
+        },
         ...save.savedData.history.slice(1),
       ],
     };
     save.persist(updated);
-  }, [cert.morgueUrl, save]);
+  }, [cert.morgueUrl, portraits.variants, save]);
 
   const startGame = useCallback(() => {
     if (!patient) return;
@@ -266,6 +291,12 @@ export default function VitalSigns() {
           <div className="vs-splash__ctaPulse" />
         </div>
         {isDemo && <div className="vs-splash__demoTag">{t('splash.demo')}</div>}
+        <button
+          className="vs-splash__wardBtn"
+          onPointerDown={(e) => { e.stopPropagation(); setPhase('wall'); }}
+        >
+          {t('splash.view_ward')}
+        </button>
         <Watermark />
       </div>
     );
@@ -314,9 +345,12 @@ export default function VitalSigns() {
   }
 
   if (phase === 'wall') {
+    // Back goes to splash if we came from there (no completed game yet);
+    // back goes to certificate if we just finished a game.
+    const backTo: Phase = cert.certificate || cert.generating ? 'certificate' : 'splash';
     return (
       <div className="vs vs--wallphase">
-        <FateWall entries={wall.entries} loaded={wall.loaded} onBack={() => setPhase('certificate')} />
+        <FateWall entries={wall.entries} loaded={wall.loaded} onBack={() => setPhase(backTo)} />
         <Watermark />
       </div>
     );

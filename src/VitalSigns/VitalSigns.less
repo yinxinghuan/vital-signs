@@ -1653,13 +1653,35 @@
 
   &__portrait {
     position: relative;
-    width: 96px;
-    height: 120px;
+    width: 110px;
+    height: 138px;
     background: #07090a;
     border: 1px solid #16241d;
     overflow: hidden;
-    img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.5) contrast(.95); }
+    img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.7) contrast(1) brightness(.95); }
     .vs-fate__avatarFallback { filter: grayscale(1) brightness(.6); }
+  }
+  // CRT scanline overlay on the portrait, hints "this is a saved monitor frame"
+  &__scan {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 1.5px, fade(black, 22%) 2px 3px),
+      radial-gradient(120% 100% at 50% 50%, transparent 60%, fade(black, 70%) 100%);
+    mix-blend-mode: multiply;
+  }
+  // Morgue/discharge stamp — small corner badge if it's different from main
+  &__stamp {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 1px;
+    border: 1px solid fade(@text-dim, 40%);
+    box-shadow: 0 1px 4px fade(black, 80%);
+    filter: grayscale(.85) contrast(1.05) brightness(.78) !important;
+    z-index: 2;
   }
   &__placeholder {
     position: absolute; inset: 0;
@@ -1883,13 +1905,36 @@
 
 .vs-splash__demoTag {
   position: absolute;
-  bottom: 30px;
+  bottom: 60px;
   font-size: 10px;
   letter-spacing: .14em;
   color: @text-dim;
   opacity: .5;
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
+}
+
+.vs-splash__wardBtn {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  border: 1px solid fade(@text-dim, 50%);
+  border-radius: 2px;
+  color: @text-dim;
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: .3em;
+  padding: 8px 18px;
+  cursor: pointer;
+  z-index: 5;
+  transition: color .15s ease, border-color .15s ease;
+  &:active {
+    color: @trace;
+    border-color: fade(@trace, 60%);
+    background: fade(@trace, 6%);
+  }
 }
 
 // ─── Watermark ─────────────────────────────────────────
