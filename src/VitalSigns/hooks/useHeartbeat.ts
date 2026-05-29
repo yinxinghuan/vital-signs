@@ -34,6 +34,7 @@ export interface HeartbeatState {
   systolic: number;    // 60..130
   diastolic: number;   // 40..85
   events: string[];    // last few event labels for HUD
+  missedInARow: number; // 0..decayThreshold-1; drives urgency UI
 }
 
 export interface UseHeartbeatOptions {
@@ -69,6 +70,7 @@ export function useHeartbeat(opts: UseHeartbeatOptions) {
     systolic: 118,
     diastolic: 76,
     events: [],
+    missedInARow: 0,
   });
 
   const [beats, setBeats] = useState<BeatMark[]>([]);
@@ -126,6 +128,7 @@ export function useHeartbeat(opts: UseHeartbeatOptions) {
       systolic: 0,
       diastolic: 0,
       events: r.current.events.slice(),
+      missedInARow: r.current.missedInARow,
     });
   }, [opts]);
 
@@ -169,6 +172,7 @@ export function useHeartbeat(opts: UseHeartbeatOptions) {
       systolic: 118,
       diastolic: 76,
       events: [],
+      missedInARow: 0,
     });
   }, []);
 
@@ -302,6 +306,7 @@ export function useHeartbeat(opts: UseHeartbeatOptions) {
           systolic: Math.round(st.systolic),
           diastolic: Math.round(st.diastolic),
           events: st.events.slice(),
+          missedInARow: st.missedInARow,
         });
       }
 

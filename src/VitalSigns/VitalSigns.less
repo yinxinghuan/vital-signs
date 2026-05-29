@@ -263,6 +263,118 @@
   box-shadow: 0 0 18px fade(@trace, 25%);
 }
 
+// ─── Death-approach urgency layer ──────────────────────
+// Red bottom-up flood vignette. Opacity scales with missedInARow via
+// CSS var so we can transition smoothly between missed-beat levels.
+.vs-fx-flood {
+  --vs-flood-op: 0;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  opacity: var(--vs-flood-op);
+  background:
+    radial-gradient(120% 60% at 50% 100%, fade(@danger, 60%) 0%, fade(@danger, 30%) 35%, transparent 65%),
+    linear-gradient(to top, fade(@danger, 12%) 0%, transparent 30%);
+  mix-blend-mode: screen;
+  transition: opacity .35s ease;
+}
+
+// Screen-edge alarm corner brackets — fold in when status critical/lethal
+.vs-fx-corners {
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity .25s ease;
+  &.is-on { opacity: 1; }
+  span {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-color: @danger;
+    box-shadow: 0 0 10px fade(@danger, 60%);
+    animation: vs-fx-corner-blink .5s ease-in-out infinite;
+  }
+  span:nth-child(1) { top: 0; left: 0; border-top: 2px solid currentColor; border-left: 2px solid currentColor; color: @danger; }
+  span:nth-child(2) { top: 0; right: 0; border-top: 2px solid currentColor; border-right: 2px solid currentColor; color: @danger; animation-delay: .1s; }
+  span:nth-child(3) { bottom: 0; left: 0; border-bottom: 2px solid currentColor; border-left: 2px solid currentColor; color: @danger; animation-delay: .2s; }
+  span:nth-child(4) { bottom: 0; right: 0; border-bottom: 2px solid currentColor; border-right: 2px solid currentColor; color: @danger; animation-delay: .3s; }
+}
+@keyframes vs-fx-corner-blink {
+  0%, 100% { opacity: .4; }
+  50%      { opacity: 1; }
+}
+
+// Alert chips — fly across screen from right to left
+.vs-fx-alert {
+  position: absolute;
+  right: 0;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(90deg, fade(@danger, 0%) 0%, fade(@danger, 60%) 40%, fade(@danger, 70%) 100%);
+  border-left: 2px solid @danger;
+  border-radius: 0 2px 2px 0;
+  color: white;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  pointer-events: none;
+  animation-name: vs-fx-alert-fly;
+  animation-timing-function: cubic-bezier(.16, .96, .35, 1);
+  animation-fill-mode: forwards;
+  text-shadow: 0 0 6px fade(@danger, 80%);
+  &__dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 6px white;
+    animation: vs-fx-corner-blink .4s ease-in-out infinite;
+  }
+}
+@keyframes vs-fx-alert-fly {
+  0%   { transform: translateX(120%); opacity: 0; }
+  10%  { opacity: 1; }
+  35%  { transform: translateX(-12%); }
+  55%  { transform: translateX(-60%); }
+  82%  { transform: translateX(-95%); opacity: 1; }
+  100% { transform: translateX(-110%); opacity: 0; }
+}
+
+// Death timer — big "FLATLINE IN N" stamped near patient
+.vs-fx-deathtimer {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: fade(@danger, 12%);
+  border: 1.5px solid fade(@danger, 70%);
+  border-radius: 2px;
+  color: @danger;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  letter-spacing: .12em;
+  pointer-events: none;
+  z-index: 7;
+  text-shadow: 0 0 10px fade(@danger, 60%);
+  box-shadow: 0 0 18px fade(@danger, 30%);
+  animation: vs-fx-deathtimer-throb .55s ease-in-out infinite;
+  &__label { font-size: 10px; }
+  &__num   { font-size: 22px; line-height: 1; }
+}
+@keyframes vs-fx-deathtimer-throb {
+  0%, 100% { transform: translateX(-50%) rotate(-3deg) scale(1); box-shadow: 0 0 14px fade(@danger, 30%); }
+  50%      { transform: translateX(-50%) rotate(-3deg) scale(1.05); box-shadow: 0 0 24px fade(@danger, 60%); }
+}
+
 // Combo shockwave — one-shot expanding ring on tier crossing
 .vs__shockwave {
   position: absolute;
@@ -489,6 +601,22 @@
     animation: vs-breathe var(--vs-breath) ease-in-out infinite;
   }
   img { width: 100%; height: 100%; object-fit: cover; filter: saturate(.85) contrast(1.05); }
+  &__avatar {
+    position: absolute; inset: 0;
+    transition: opacity .8s ease;
+    opacity: 1;
+    &.is-faded { opacity: 0; }
+  }
+  &__erPortrait {
+    position: absolute; inset: 0;
+    opacity: 0;
+    animation: vs-erportrait-in 1.6s ease-out forwards;
+    filter: saturate(.78) contrast(1.08) brightness(.92) !important;
+  }
+  @keyframes vs-erportrait-in {
+    0%   { opacity: 0; transform: scale(1.04); }
+    100% { opacity: 1; transform: scale(1); }
+  }
   &__placeholder {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;

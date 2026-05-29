@@ -8,6 +8,7 @@ import { useHeartbeat } from './hooks/useHeartbeat';
 import { useAigramContacts, pickRandomPatient } from './hooks/useAigramContacts';
 import { useDeathCertificate, type DeathCertificate as DCert } from './hooks/useDeathCertificate';
 import { useFateWall } from './hooks/useFateWall';
+import { useResuscitationPortrait } from './hooks/useResuscitationPortrait';
 import { useGameSave } from '@shared/save';
 import { useGameEvent } from '@shared/runtime';
 import type { Patient, FateRecord, VitalSignsSave } from './types';
@@ -16,6 +17,7 @@ import Hud from './components/Hud';
 import FateWall from './components/FateWall';
 import StatusStrip from './components/StatusStrip';
 import PlethCanvas from './components/PlethCanvas';
+import CriticalFx from './components/CriticalFx';
 import { t } from './i18n';
 import * as audio from './utils/audio';
 
@@ -50,6 +52,7 @@ export default function VitalSigns() {
   const save = useGameSave<VitalSignsSave>('vital-signs');
   const wall = useFateWall();
   const event = useGameEvent();
+  const portrait = useResuscitationPortrait(patient);
   const persistedFateRef = useRef<string | null>(null);
 
   const newShift = useCallback(() => {
@@ -242,7 +245,7 @@ export default function VitalSigns() {
       <div className="vs vs--splash" onPointerDown={startGame}>
         <AmbientOverlay />
         <div className="vs-splash__topcard">
-          <PatientCard patient={patient} bpm={60} />
+          <PatientCard patient={patient} bpm={60} portraitUrl={portrait.url} />
         </div>
         <div className="vs-splash__instructions">
           <div className="vs-splash__line">{t('splash.line1')}</div>
@@ -262,7 +265,7 @@ export default function VitalSigns() {
   if (phase === 'dying') {
     return (
       <div className="vs vs--dying">
-        <PatientCard patient={patient} dying />
+        <PatientCard patient={patient} dying portraitUrl={portrait.url} />
         <div className="vs-dying__msg">
           {state.status === 'vfib' ? t('die.vfib') : t('die.flatline')}
         </div>
@@ -326,11 +329,12 @@ export default function VitalSigns() {
       <div className="vs__edgeFlash" />
       <div className="vs__criticalStrobe" />
       <div className="vs__chromaShift" />
+      <CriticalFx status={state.status} missedInARow={state.missedInARow} />
       <ComboGlow tier={comboTier} />
       <ComboShockwave combo={state.combo} />
       <ComboBadge combo={state.combo} tier={comboTier} />
       <StatusStrip state={state} />
-      <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} frameRef={patientFrameRef} />
+      <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} frameRef={patientFrameRef} portraitUrl={portrait.url} />
       <Hud state={state} patientName={patient.name || patient.telegram_id} />
       <div className="vs__monitor">
         <div className="vs__channel">
@@ -477,7 +481,7 @@ function AmbientOverlay() {
   );
 }
 
-function PatientCard({ patient, state, dying, bpm, frameRef }: { patient: Patient; state?: string; dying?: boolean; bpm?: number; frameRef?: React.RefObject<HTMLDivElement> }) {
+function PatientCard({ patient, state, dying, bpm, frameRef, portraitUrl }: { patient: Patient; state?: string; dying?: boolean; bpm?: number; frameRef?: React.RefObject<HTMLDivElement>; portraitUrl?: string | null }) {
   const initials = useMemo(() => (patient.name || patient.telegram_id || '?').slice(0, 2).toUpperCase(), [patient]);
   const idTag = useMemo(() => {
     // deterministic fake patient ID from telegram_id
@@ -505,9 +509,25 @@ function PatientCard({ patient, state, dying, bpm, frameRef }: { patient: Patien
         <div className="vs-patient__ivDrop" />
       </div>
       <div className="vs-patient__frame" ref={frameRef}>
-        {patient.head_url ? (
-          <img src={patient.head_url} alt="" draggable={false} referrerPolicy="no-referrer" />
-        ) : (
+        {patient.head_url && (
+          <img
+            src={patient.head_url}
+            alt=""
+            className={`vs-patient__avatar ${portraitUrl ? 'is-faded' : ''}`}
+            draggable={false}
+            referrerPolicy="no-referrer"
+          />
+        )}
+        {portraitUrl && (
+          <img
+            src={portraitUrl}
+            alt=""
+            className="vs-patient__erPortrait"
+            draggable={false}
+            referrerPolicy="no-referrer"
+          />
+        )}
+        {!patient.head_url && (
           <div className="vs-patient__placeholder">{initials}</div>
         )}
         <div className="vs-patient__scan" />
