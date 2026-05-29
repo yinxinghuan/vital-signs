@@ -11,6 +11,7 @@ import type { PatientStatus } from '../types';
 interface Props {
   beats: BeatMark[];
   status: PatientStatus;
+  /** Optional fixed height in px. If omitted, canvas fills its parent (100%). */
   height?: number;
   pxPerSec?: number;
 }
@@ -199,7 +200,7 @@ export default function EcgCanvas({ beats, status, height = 180, pxPerSec = 130 
     <canvas
       ref={canvasRef}
       className="vs-ecg__canvas"
-      style={{ width: '100%', height: `${height}px`, display: 'block' }}
+      style={{ width: '100%', height: height ? `${height}px` : '100%', display: 'block' }}
     />
   );
 }

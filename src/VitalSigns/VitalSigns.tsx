@@ -2,13 +2,13 @@
 // rhythm engine, ECG render, HUD, Aigram patient picker. (LLM + wall
 // come in later tasks.)
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './VitalSigns.less';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import { useAigramContacts, pickRandomPatient } from './hooks/useAigramContacts';
 import { useDeathCertificate, type DeathCertificate as DCert } from './hooks/useDeathCertificate';
 import { useFateWall } from './hooks/useFateWall';
-import { useResuscitationPortrait } from './hooks/useResuscitationPortrait';
+import { useResuscitationPortraits } from './hooks/useResuscitationPortrait';
 import { useGameSave } from '@shared/save';
 import { useGameEvent } from '@shared/runtime';
 import type { Patient, FateRecord, VitalSignsSave } from './types';
@@ -18,6 +18,7 @@ import FateWall from './components/FateWall';
 import StatusStrip from './components/StatusStrip';
 import PlethCanvas from './components/PlethCanvas';
 import CriticalFx from './components/CriticalFx';
+import MonitorView from './components/MonitorView';
 import { t } from './i18n';
 import * as audio from './utils/audio';
 
@@ -52,7 +53,7 @@ export default function VitalSigns() {
   const save = useGameSave<VitalSignsSave>('vital-signs');
   const wall = useFateWall();
   const event = useGameEvent();
-  const portrait = useResuscitationPortrait(patient);
+  const portraits = useResuscitationPortraits(patient);
   const persistedFateRef = useRef<string | null>(null);
 
   const newShift = useCallback(() => {
@@ -245,7 +246,15 @@ export default function VitalSigns() {
       <div className="vs vs--splash" onPointerDown={startGame}>
         <AmbientOverlay />
         <div className="vs-splash__topcard">
-          <PatientCard patient={patient} bpm={60} portraitUrl={portrait.url} />
+          <MonitorView
+            patient={patient}
+            status="alive"
+            missedInARow={0}
+            bpm={60}
+            elapsedSeconds={0}
+            variants={portraits.variants}
+            dimmed
+          />
         </div>
         <div className="vs-splash__instructions">
           <div className="vs-splash__line">{t('splash.line1')}</div>
@@ -265,7 +274,14 @@ export default function VitalSigns() {
   if (phase === 'dying') {
     return (
       <div className="vs vs--dying">
-        <PatientCard patient={patient} dying portraitUrl={portrait.url} />
+        <MonitorView
+          patient={patient}
+          status={state.status}
+          missedInARow={state.missedInARow}
+          bpm={state.targetBPM}
+          elapsedSeconds={state.lifeSeconds}
+          variants={portraits.variants}
+        />
         <div className="vs-dying__msg">
           {state.status === 'vfib' ? t('die.vfib') : t('die.flatline')}
         </div>
@@ -334,22 +350,30 @@ export default function VitalSigns() {
       <ComboShockwave combo={state.combo} />
       <ComboBadge combo={state.combo} tier={comboTier} />
       <StatusStrip state={state} />
-      <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} frameRef={patientFrameRef} portraitUrl={portrait.url} />
+      <MonitorView
+        patient={patient}
+        status={state.status}
+        missedInARow={state.missedInARow}
+        bpm={state.targetBPM}
+        elapsedSeconds={state.lifeSeconds}
+        variants={portraits.variants}
+        frameRef={patientFrameRef}
+      />
       <Hud state={state} patientName={patient.name || patient.telegram_id} />
       <div className="vs__monitor">
-        <div className="vs__channel">
+        <div className="vs__channel vs__channel--ecg">
           <div className="vs__channelLabel">
             <span>II</span>
             <span className="vs__channelGain">×1.0</span>
           </div>
-          <EcgCanvas beats={beats} status={state.status} height={140} />
+          <EcgCanvas beats={beats} status={state.status} />
         </div>
         <div className="vs__channel vs__channel--pleth">
           <div className="vs__channelLabel">
             <span>SpO₂</span>
             <span className="vs__channelGain">{state.status === 'flatline' ? '— —' : `${state.spO2}%`}</span>
           </div>
-          <PlethCanvas status={state.status} bpm={state.targetBPM} height={60} />
+          <PlethCanvas status={state.status} bpm={state.targetBPM} />
         </div>
       </div>
       <div className="vs__tapZone">
@@ -481,62 +505,8 @@ function AmbientOverlay() {
   );
 }
 
-function PatientCard({ patient, state, dying, bpm, frameRef, portraitUrl }: { patient: Patient; state?: string; dying?: boolean; bpm?: number; frameRef?: React.RefObject<HTMLDivElement>; portraitUrl?: string | null }) {
-  const initials = useMemo(() => (patient.name || patient.telegram_id || '?').slice(0, 2).toUpperCase(), [patient]);
-  const idTag = useMemo(() => {
-    // deterministic fake patient ID from telegram_id
-    let h = 5381;
-    const s = patient.telegram_id || patient.name || 'x';
-    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
-    return (h % 9000 + 1000).toString();
-  }, [patient]);
-  // Breathing tied to BPM: long inhale ~ 4 beats, exhale ~ 4 beats
-  const breathSec = bpm ? Math.max(2, (60 / bpm) * 8) : 4;
-  return (
-    <div
-      className={`vs-patient ${dying ? 'is-dying' : ''} ${state === 'critical' ? 'is-critical' : ''}`}
-      style={{ ['--vs-breath' as any]: `${breathSec}s` }}
-    >
-      <div className="vs-patient__brackets" aria-hidden>
-        <span /><span /><span /><span />
-      </div>
-      <div className="vs-patient__sticker">
-        <div className="vs-patient__stickerRow"><span>PID</span><b>VS-{idTag}</b></div>
-        <div className="vs-patient__stickerRow"><span>WARD</span><b>03 / DREAM</b></div>
-      </div>
-      <div className="vs-patient__iv" aria-hidden>
-        <div className="vs-patient__ivLine" />
-        <div className="vs-patient__ivDrop" />
-      </div>
-      <div className="vs-patient__frame" ref={frameRef}>
-        {patient.head_url && (
-          <img
-            src={patient.head_url}
-            alt=""
-            className={`vs-patient__avatar ${portraitUrl ? 'is-faded' : ''}`}
-            draggable={false}
-            referrerPolicy="no-referrer"
-          />
-        )}
-        {portraitUrl && (
-          <img
-            src={portraitUrl}
-            alt=""
-            className="vs-patient__erPortrait"
-            draggable={false}
-            referrerPolicy="no-referrer"
-          />
-        )}
-        {!patient.head_url && (
-          <div className="vs-patient__placeholder">{initials}</div>
-        )}
-        <div className="vs-patient__scan" />
-        <div className="vs-patient__gridOverlay" />
-      </div>
-      <div className="vs-patient__name">@{patient.name || patient.telegram_id}</div>
-    </div>
-  );
-}
+// PatientCard removed in v0.7 — replaced by MonitorView. Patient identity
+// chrome lives inside the monitor frame now (top/bottom bars + IV).
 
 function TargetRing({ targetBPM, status }: { targetBPM: number; status: string }) {
   // CSS pulse cue synchronized to the patient's current target BPM.

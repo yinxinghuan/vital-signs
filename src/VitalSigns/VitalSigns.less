@@ -11,6 +11,8 @@
 .vs {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;          // mobile-safe dynamic viewport height
   background:
     radial-gradient(circle at 50% 30%, #0a1813 0%, #060809 60%, #030404 100%);
   color: @text;
@@ -19,6 +21,7 @@
   touch-action: none;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 // ─── Layered differential shake ────────────────────────
@@ -575,6 +578,287 @@
   50% { opacity: .35; }
 }
 
+// ─── Monitor view (CCTV-style portrait display) ────────
+.vs-monitor {
+  position: relative;
+  margin: 10px 14px 4px;
+  flex: 0 0 auto;
+  max-height: 32vh;     // never let the monitor eat the screen
+  z-index: 2;
+  transition: filter .4s ease, opacity .4s ease;
+  min-height: 0;
+
+  &.is-dimmed { opacity: .85; }
+
+  &__bezel {
+    position: relative;
+    padding: 4px 5px 5px;
+    background: linear-gradient(180deg, #1a1d1c 0%, #0b0d0c 100%);
+    border-radius: 6px;
+    box-shadow:
+      inset 0 1px 0 fade(white, 5%),
+      inset 0 -1px 0 fade(black, 50%),
+      0 1px 3px fade(black, 70%);
+  }
+  &__screen {
+    --vs-breath: 4s;
+    position: relative;
+    aspect-ratio: 16 / 11;
+    width: 100%;
+    max-height: calc(32vh - 18px);   // clamp by viewport so it shrinks
+    background: #030504;
+    border: 1px solid #08130d;
+    overflow: hidden;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px fade(@trace, 8%),
+      inset 0 0 36px fade(@trace, 12%),
+      inset 0 0 80px fade(black, 80%);
+  }
+
+  // ─ Signal area (image + overlays) ──────
+  &__signal {
+    position: absolute;
+    inset: 22px 0 26px 0;
+    overflow: hidden;
+    background: #040605;
+  }
+  &__img, &__imgRaw {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    animation: vs-monitor-img-in 1.4s ease-out;
+    transition: filter .5s ease;
+  }
+  &__img {
+    filter: saturate(.65) contrast(1.05) brightness(.9) hue-rotate(-5deg);
+  }
+  &__imgRaw {
+    filter: saturate(.45) contrast(.95) brightness(.78) hue-rotate(140deg) sepia(.35);
+  }
+  &__placeholder {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: fade(@trace, 70%);
+    font-size: 52px; letter-spacing: .14em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  @keyframes vs-monitor-img-in {
+    0%   { opacity: 0; transform: scale(1.06); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  // ─ CRT overlays on the signal area ──────
+  &__scan {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 1.5px, fade(black, 28%) 2px 3px),
+      linear-gradient(180deg, transparent 0%, fade(@trace, 8%) 50%, transparent 100%);
+    background-size: 100% 100%, 100% 56px;
+    background-repeat: repeat, no-repeat;
+    animation: vs-monitor-scan 3.4s linear infinite;
+    mix-blend-mode: overlay;
+  }
+  @keyframes vs-monitor-scan {
+    0%   { background-position: 0 0, 0 -56px; }
+    100% { background-position: 0 0, 0 100%; }
+  }
+
+  &__bloom {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(80% 60% at 50% 45%, fade(@trace, 0%) 40%, fade(@trace, 9%) 100%);
+    mix-blend-mode: screen;
+  }
+  &__vignette {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 100% at 50% 50%, transparent 50%, fade(black, 75%) 100%);
+  }
+  &__glitch {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 1px, fade(@trace, 45%) 1px 2px),
+      linear-gradient(180deg, fade(white, 0%) 0%, fade(white, 25%) 50%, fade(white, 0%) 100%);
+    mix-blend-mode: screen;
+    opacity: 0;
+    animation: vs-monitor-glitch 320ms steps(4) forwards;
+  }
+  @keyframes vs-monitor-glitch {
+    0%   { opacity: 1; transform: translateY(-30%) skewX(-2deg); }
+    30%  { opacity: 1; transform: translateY(8%) skewX(1deg); }
+    65%  { opacity: .6; transform: translateY(-3%) skewX(0); }
+    100% { opacity: 0; transform: translateY(0); }
+  }
+
+  // ─ Top status bar ──────
+  &__topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 22px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(180deg, fade(black, 80%) 0%, fade(black, 65%) 100%);
+    border-bottom: 1px solid fade(@trace, 14%);
+    font-size: 9px;
+    letter-spacing: .18em;
+    color: @text-dim;
+    z-index: 2;
+  }
+  &__rec {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: @danger;
+    font-weight: 600;
+  }
+  &__recDot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: @danger;
+    box-shadow: 0 0 6px fade(@danger, 80%);
+    animation: vs-monitor-rec 1s ease-in-out infinite;
+  }
+  @keyframes vs-monitor-rec {
+    0%, 60% { opacity: 1; }
+    61%, 100% { opacity: .25; }
+  }
+  &__camLabel {
+    color: @trace;
+    font-weight: 500;
+  }
+  &__clock {
+    margin-left: auto;
+    color: @text;
+    font-feature-settings: "tnum";
+    letter-spacing: .08em;
+  }
+
+  // ─ Bottom info bar ──────
+  &__bottombar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 26px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(180deg, fade(black, 65%) 0%, fade(black, 85%) 100%);
+    border-top: 1px solid fade(@trace, 14%);
+    font-size: 9.5px;
+    letter-spacing: .14em;
+    color: @text-dim;
+    z-index: 2;
+    overflow: hidden;
+  }
+  &__pid   { color: @trace; font-weight: 500; }
+  &__ward  { color: @text; }
+  &__sep   { color: fade(@text-dim, 50%); }
+  &__name  {
+    color: @accent;
+    margin-left: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // ─ IV drip overlay ──────
+  &__iv {
+    position: absolute;
+    right: 10px;
+    top: 28px;
+    bottom: 32px;
+    width: 12px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  &__ivLine {
+    position: absolute;
+    left: 6px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, fade(@trace, 0%) 0%, fade(@trace, 35%) 12%, fade(@trace, 35%) 90%, fade(@trace, 0%) 100%);
+  }
+  &__ivDrop {
+    position: absolute;
+    left: 3px;
+    top: 0;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, @trace, fade(@trace, 0%) 70%);
+    animation: vs-drip 3.4s ease-in infinite;
+  }
+
+  // ─ No signal placeholder while waiting for gen ──────
+  &__noSignal {
+    position: absolute; inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    pointer-events: none;
+  }
+  &__noSignalBar {
+    width: 80%;
+    height: 2px;
+    background:
+      linear-gradient(90deg, fade(@trace, 0%) 0%, fade(@trace, 50%) 50%, fade(@trace, 0%) 100%);
+    background-size: 200% 100%;
+    animation: vs-monitor-shimmer 1.6s linear infinite;
+  }
+  &__noSignalTxt {
+    color: fade(@trace, 60%);
+    font-size: 10px;
+    letter-spacing: .3em;
+    animation: vs-hint 1.4s ease-in-out infinite;
+  }
+  @keyframes vs-monitor-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  // ─ Per-variant tinting ──────
+  &.is-critical {
+    .vs-monitor__screen {
+      box-shadow:
+        inset 0 0 0 1px fade(@warn, 18%),
+        inset 0 0 32px fade(@warn, 18%),
+        inset 0 0 80px fade(black, 80%);
+    }
+    .vs-monitor__bloom {
+      background: radial-gradient(80% 60% at 50% 45%, fade(@warn, 0%) 40%, fade(@warn, 14%) 100%);
+    }
+  }
+  &.is-flatline,
+  &.is-vfib {
+    .vs-monitor__screen {
+      box-shadow:
+        inset 0 0 0 1px fade(@danger, 22%),
+        inset 0 0 38px fade(@danger, 24%),
+        inset 0 0 90px fade(black, 80%);
+    }
+    .vs-monitor__bloom {
+      background: radial-gradient(80% 60% at 50% 45%, fade(@danger, 0%) 30%, fade(@danger, 20%) 100%);
+    }
+    .vs-monitor__img { filter: saturate(.4) contrast(1.1) brightness(.78) hue-rotate(-15deg); }
+  }
+  &.is-vfib .vs-monitor__signal {
+    animation: vs-monitor-vfib-shake 90ms steps(2) infinite;
+  }
+  @keyframes vs-monitor-vfib-shake {
+    0%   { transform: translateX(-2px); }
+    100% { transform: translateX(2px); }
+  }
+}
+
 // ─── Patient card ───────────────────────────────────────
 .vs-patient {
   --vs-breath: 4s;
@@ -755,8 +1039,9 @@
 
 // ─── HUD ────────────────────────────────────────────────
 .vs-hud {
-  margin: 12px 14px 6px;
-  padding: 10px 14px;
+  flex: 0 0 auto;
+  margin: 8px 14px 4px;
+  padding: 8px 14px;
   background: linear-gradient(180deg, #0c1310 0%, #07090a 100%);
   border: 1px solid #16241d;
   border-radius: 4px;
@@ -858,6 +1143,9 @@
 
 // Multi-channel bedside monitor wrap
 .vs__monitor {
+  flex: 1 1 0;
+  min-height: 110px;
+  max-height: 30vh;
   margin: 0 14px;
   border: 1px solid #16241d;
   border-radius: 4px;
@@ -871,9 +1159,11 @@
 .vs__channel {
   position: relative;
   border-top: 1px dashed #142019;
+  min-height: 0;
   &:first-child { border-top: none; }
 }
-.vs__channel--pleth { background: #030505; }
+.vs__channel--ecg   { flex: 1.7 1 0; }
+.vs__channel--pleth { flex: 1 1 0; background: #030505; max-height: 70px; }
 .vs__channelLabel {
   position: absolute;
   top: 4px;
@@ -894,12 +1184,13 @@
 
 // ─── Tap zone ──────────────────────────────────────────
 .vs__tapZone {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 100px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 8px 14px 14px;
+  margin: 6px 14px 12px;
   border: 1px solid #163024;
   border-radius: 4px;
   background:
@@ -1542,10 +1833,36 @@
 // ─── Watermark ─────────────────────────────────────────
 .vs__watermark {
   position: absolute;
-  bottom: 8px;
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
-  height: 16px;
+  height: 14px;
   opacity: .25;
   pointer-events: none;
+}
+
+// ─── Short-screen breakpoints ──────────────────────────
+@media (max-height: 700px) {
+  .vs-monitor { max-height: 28vh; margin: 6px 12px 3px; }
+  .vs-monitor__screen { max-height: calc(28vh - 16px); }
+  .vs-hud { margin: 6px 12px 3px; padding: 6px 10px; font-size: 10.5px; }
+  .vs-hud__bpmValue { font-size: 30px; }
+  .vs-hud__target { font-size: 20px; }
+  .vs-hud__main { padding: 6px 0; }
+  .vs__monitor { margin: 0 12px; min-height: 95px; max-height: 26vh; }
+  .vs__tapZone { margin: 4px 12px 8px; min-height: 70px; }
+}
+@media (max-height: 600px) {
+  .vs-strip { height: 22px; font-size: 8.5px; }
+  .vs-monitor { max-height: 26vh; margin: 4px 10px 2px; }
+  .vs-monitor__screen { max-height: calc(26vh - 14px); }
+  .vs-monitor__topbar { height: 18px; font-size: 8px; }
+  .vs-monitor__bottombar { height: 20px; font-size: 8.5px; }
+  .vs-monitor__signal { inset: 18px 0 20px 0; }
+  .vs-hud { padding: 5px 8px; font-size: 9.5px; }
+  .vs-hud__bpmValue { font-size: 26px; }
+  .vs-hud__top { margin-bottom: 4px; }
+  .vs__monitor { min-height: 80px; max-height: 22vh; }
+  .vs__tapZone { margin: 4px 10px 6px; min-height: 56px; }
+  .vs__watermark { display: none; }
 }

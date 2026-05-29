@@ -8,11 +8,12 @@ import type { PatientStatus } from '../types';
 interface Props {
   status: PatientStatus;
   bpm: number;
+  /** Optional fixed height in px. If omitted, canvas fills its parent (100%). */
   height?: number;
   pxPerSec?: number;
 }
 
-export default function PlethCanvas({ status, bpm, height = 64, pxPerSec = 90 }: Props) {
+export default function PlethCanvas({ status, bpm, height, pxPerSec = 90 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
 
@@ -120,7 +121,7 @@ export default function PlethCanvas({ status, bpm, height = 64, pxPerSec = 90 }:
     <canvas
       ref={canvasRef}
       className="vs-pleth__canvas"
-      style={{ width: '100%', height: `${height}px`, display: 'block' }}
+      style={{ width: '100%', height: height ? `${height}px` : '100%', display: 'block' }}
     />
   );
 }
