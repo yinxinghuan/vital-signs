@@ -6,8 +6,7 @@
 // Both stream in independently. UI can render whichever lands first.
 
 import { useCallback, useRef, useState } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useChat, useGenImage } from '@shared/runtime';
+import { useChat } from '@shared/runtime';
 import type { Patient } from '../types';
 
 export interface DeathCertificate {
@@ -65,22 +64,6 @@ const DISCHARGE_SYSTEM_PROMPT =
   `verdict ≤ 100 chars, the attending's one-line release ruling ` +
   `(e.g. "Cleared to vibe. Recommend two days of yogurt and silence.").`;
 
-const MORGUE_PROMPT =
-  `Cold morgue tag portrait of the same subject from the reference image. ` +
-  `Closed eyes, pale composed expression, dignified. ` +
-  `Fluorescent overhead light, blue-grey skin tone, white-tile background, ` +
-  `soft top-down shadow, slight teal vignette. ` +
-  `Faintly visible string-tag with crinkled card pinned at the shoulder. ` +
-  `Editorial mood photograph, AlterU After Dark, no text in image, no captions.`;
-
-const DISCHARGE_PROMPT =
-  `Soft hospital recovery portrait of the same subject from the reference image. ` +
-  `Eyes barely open, calm composed expression, color returning to their face. ` +
-  `Warm dawn light from a hospital window slatted through blinds, off-white sheets, ` +
-  `IV taken out, small bandage at the wrist visible. ` +
-  `Editorial mood photograph, gentle warmth, AlterU After Dark soft-tone variant, ` +
-  `no text in image, no captions.`;
-
 // Retry pattern: long-running fetches (~30-200s for gen-image, ~10-30s for
 // chat) routinely die when iOS / Telegram WebView suspends background tabs
 // during scroll. Without retry the cert/morgue slot stays empty for the
@@ -129,13 +112,10 @@ function extractJson(raw: string): DeathCertificate | null {
 }
 
 export function useDeathCertificate(): UseDeathCertificate {
-  // We swap the system prompt per call by constructing a fresh useChat
-  // instance for death vs discharge. Since useChat caches the system in
-  // closure, we instead pass system inside `send` via re-init — but for
-  // simplicity we keep a single useChat with no system, and prepend the
-  // chosen system as a user-flavor instruction in the prompt itself.
+  // v0.12: useGenImage import retained as a no-op so existing callers don't
+  // break, but morgue gen is gone. Image source for cert screen comes from
+  // the pre-generated resuscitation portraits piped through from caller.
   const { send: sendChat } = useChat({ maxHistory: 0 });
-  const { generate: callGenImage } = useGenImage();
 
   const [certificate, setCertificate] = useState<DeathCertificate | null>(null);
   const [morgueUrl, setMorgueUrl] = useState<string | null>(null);
@@ -153,7 +133,7 @@ export function useDeathCertificate(): UseDeathCertificate {
     inFlightId.current += 1;
   }, []);
 
-  const generate = useCallback(async ({ patient, lifeSeconds, outcome, bestCombo }: {
+  const generate = useCallback(async ({ lifeSeconds, outcome, bestCombo }: {
     patient: Patient;
     lifeSeconds: number;
     outcome: Outcome;
@@ -174,7 +154,12 @@ export function useDeathCertificate(): UseDeathCertificate {
       'discharge after sustained pulse capture';
 
     const systemPrompt = isSurvived ? DISCHARGE_SYSTEM_PROMPT : DEATH_SYSTEM_PROMPT;
-    const imagePrompt = isSurvived ? DISCHARGE_PROMPT : MORGUE_PROMPT;
+    // v0.12: no separate death-time img2img. The 3 resuscitation portraits
+    // started gen at patient-pick (during splash) — by the time we land
+    // here the matching one is usually ready, and even when it's not the
+    // caller pipes the avatar as fallback. Saves 1 expensive call per game
+    // AND avoids the "cert image never developed" problem after the v0.11
+    // 5-15s round speedup.
 
     const userPrompt =
       `${systemPrompt}\n\n` +
@@ -199,21 +184,9 @@ export function useDeathCertificate(): UseDeathCertificate {
         setCertError(e instanceof Error ? e.message : 'chat failed');
       });
 
-    const imgPromise = patient.head_url
-      ? withRetry('morgue', () => callGenImage({ prompt: imagePrompt, ref_url: patient.head_url }))
-          .then((url) => {
-            if (inFlightId.current !== myId) return;
-            setMorgueUrl(url);
-          })
-          .catch((e: unknown) => {
-            if (inFlightId.current !== myId) return;
-            setImageError(e instanceof Error ? e.message : 'gen-image failed');
-          })
-      : Promise.resolve();
-
-    await Promise.allSettled([chatPromise, imgPromise]);
+    await chatPromise;
     if (inFlightId.current === myId) setGenerating(false);
-  }, [sendChat, callGenImage]);
+  }, [sendChat]);
 
   return { certificate, morgueUrl, generating, certError, imageError, generate, reset };
 }

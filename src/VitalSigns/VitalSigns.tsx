@@ -158,7 +158,7 @@ export default function VitalSigns() {
       lastWords: cert.certificate.last_words,
       timeOfDeath: cert.certificate.time_of_death,
       verdict: cert.certificate.verdict,
-      morgueImageUrl: cert.morgueUrl,
+      morgueImageUrl: null,    // v0.12: no separate morgue gen — use erPortraits
       erPortraits: {
         stable:   portraits.variants.stable,
         critical: portraits.variants.critical,
@@ -175,11 +175,10 @@ export default function VitalSigns() {
       totalSeconds: (existing?.totalSeconds ?? 0) + record.lifeSeconds,
     };
     save.persist(next);
-  }, [phase, patient, cert.certificate, cert.morgueUrl, state.lifeSeconds, state.score, state.bestCombo, state.status, save]);
+  }, [phase, patient, cert.certificate, state.lifeSeconds, state.score, state.bestCombo, state.status, save]);
 
-  // When the morgue image OR any ER portrait variant lands AFTER persistence,
-  // patch the freshest record in place — we don't want token-spent images
-  // dropped on the floor.
+  // When ER portrait variants land AFTER initial persistence, patch the
+  // freshest record in place — paid tokens shouldn't be dropped on the floor.
   useEffect(() => {
     if (!persistedFateRef.current || !save.savedData) return;
     const top = save.savedData.history[0];
@@ -195,23 +194,18 @@ export default function VitalSigns() {
       storedER?.stable   !== liveER.stable   ||
       storedER?.critical !== liveER.critical ||
       storedER?.lethal   !== liveER.lethal;
-    const morgueDelta = !top.morgueImageUrl && cert.morgueUrl;
 
-    if (!erDelta && !morgueDelta) return;
+    if (!erDelta) return;
 
     const updated: VitalSignsSave = {
       ...save.savedData,
       history: [
-        {
-          ...top,
-          morgueImageUrl: top.morgueImageUrl ?? cert.morgueUrl,
-          erPortraits: liveER,
-        },
+        { ...top, erPortraits: liveER },
         ...save.savedData.history.slice(1),
       ],
     };
     save.persist(updated);
-  }, [cert.morgueUrl, portraits.variants, save]);
+  }, [portraits.variants, save]);
 
   const startGame = useCallback(() => {
     if (!patient) return;
@@ -326,6 +320,17 @@ export default function VitalSigns() {
       state.status === 'vfib' ? 'vfib' :
       state.status === 'flatline' ? 'flatline' :
       'survived';
+    // v0.12: cert image source = pre-generated resuscitation portrait
+    // matching the outcome (lethal for death, stable for survived).
+    // Falls back to lower tiers if the matching one isn't ready yet.
+    const certImageUrl =
+      outcome === 'survived'
+        ? portraits.variants.stable ?? portraits.variants.critical ?? null
+        : portraits.variants.lethal ?? portraits.variants.critical ?? portraits.variants.stable ?? null;
+    const portraitLoading =
+      outcome === 'survived'
+        ? portraits.loading.stable && !certImageUrl
+        : portraits.loading.lethal && !certImageUrl;
     return (
       <Certificate
         patient={patient}
@@ -334,8 +339,9 @@ export default function VitalSigns() {
         outcome={outcome}
         score={state.score}
         certificate={cert.certificate}
-        morgueUrl={cert.morgueUrl}
+        morgueUrl={certImageUrl}
         generating={cert.generating}
+        portraitLoading={portraitLoading}
         certError={cert.certError}
         imageError={cert.imageError}
         onRestart={() => { reset(); newShift(); }}
@@ -587,7 +593,7 @@ function TapFeedback({ quality, totalTaps }: { quality: ReturnType<typeof useHea
 
 function Certificate({
   patient, lifeSeconds, bestCombo, outcome, score,
-  certificate, morgueUrl, generating, certError, imageError,
+  certificate, morgueUrl, generating, portraitLoading, certError, imageError,
   onRestart, onWall,
 }: {
   patient: Patient;
@@ -598,6 +604,7 @@ function Certificate({
   certificate: DCert | null;
   morgueUrl: string | null;
   generating: boolean;
+  portraitLoading: boolean;
   certError: string | null;
   imageError: string | null;
   onRestart: () => void;
@@ -639,8 +646,8 @@ function Certificate({
           ) : (
             <div className="vs-cert__avatarPlaceholder">{(patient.name || '?').slice(0, 2).toUpperCase()}</div>
           )}
-          {!morgueUrl && generating && <div className="vs-cert__developing">{t('cert.developing')}</div>}
-          {!morgueUrl && !generating && imageError && (
+          {!morgueUrl && portraitLoading && <div className="vs-cert__developing">{t('cert.developing')}</div>}
+          {!morgueUrl && !portraitLoading && imageError && (
             <div className="vs-cert__cameraOffline">{t('cert.camera_offline')}</div>
           )}
         </div>

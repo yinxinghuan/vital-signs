@@ -55,29 +55,53 @@ export function useFateWall(): UseFateWall {
           'GET',
         );
         const rows = Array.isArray(res?.data) ? res.data : [];
-        const parsed: { row: SaveRow; fate: FateRecord }[] = [];
+
+        // ── Flatten across users instead of only-most-recent per user ──
+        // Old behavior took history[0] per row = 1 fate per user; new game
+        // overwrote the previous on the public wall. Now we walk every
+        // stored history slot so older fates stick around alongside newer
+        // ones, then sort by createdAt desc and cap at 24.
+        const HISTORY_PER_USER = 6;
+        const TOTAL_CAP = 24;
+
+        const flat: { userId: string; fate: FateRecord }[] = [];
+        const userOrder: string[] = [];   // dedup ordering of users for profile fetch
         for (const row of rows) {
           if (!row.user_id || !row.resource_data) continue;
           try {
             const save = JSON.parse(row.resource_data) as VitalSignsSave;
-            const fate = save.history?.[0];
-            if (fate) parsed.push({ row, fate });
+            const fates = (save.history ?? []).slice(0, HISTORY_PER_USER);
+            for (const fate of fates) {
+              if (!fate) continue;
+              flat.push({ userId: row.user_id, fate });
+            }
+            if (!userOrder.includes(row.user_id)) userOrder.push(row.user_id);
           } catch { /* skip corrupt */ }
-          if (parsed.length >= 6) break;
         }
+
+        flat.sort((a, b) => (b.fate.createdAt ?? 0) - (a.fate.createdAt ?? 0));
+        const capped = flat.slice(0, TOTAL_CAP);
+
+        // Profile lookup once per unique user
+        const uniqUsers = Array.from(new Set(capped.map((x) => x.userId)));
         const profiles = await Promise.all(
-          parsed.map(({ row }) =>
+          uniqUsers.map((uid) =>
             callAigramAPI<AigramResponse<{ name?: string; head_url?: string }>>(
-              `/note/telegram/user/get/info/by/telegram_id?telegram_id=${encodeURIComponent(row.user_id)}`,
+              `/note/telegram/user/get/info/by/telegram_id?telegram_id=${encodeURIComponent(uid)}`,
               'GET',
             ).catch(() => null),
           ),
         );
+        const profByUser = new Map<string, { name?: string; head_url?: string } | undefined>();
+        uniqUsers.forEach((uid, i) => profByUser.set(uid, profiles[i]?.data));
+
         if (cancelled) return;
-        setEntries(parsed.map(({ row, fate }, i) => ({
-          byUserId: row.user_id,
-          byUserName: profiles[i]?.data?.name,
-          byUserAvatarUrl: profiles[i]?.data?.head_url,
+        // referencing userOrder so it doesn't unused-warn; legacy field kept
+        void userOrder;
+        setEntries(capped.map(({ userId, fate }) => ({
+          byUserId: userId,
+          byUserName: profByUser.get(userId)?.name,
+          byUserAvatarUrl: profByUser.get(userId)?.head_url,
           fate,
         })));
       } catch {
