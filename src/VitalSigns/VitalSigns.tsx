@@ -308,12 +308,27 @@ export default function VitalSigns() {
     state.status === 'flatline' ? 'is-flatline' :
     state.status === 'vfib' ? 'is-vfib' : '';
 
+  // Combo tier — drives the screen-wide visual accumulation.
+  // 0: 0-4 (none) · 1: 5-9 (warming) · 2: 10-19 (heated) · 3: 20+ (charged)
+  const comboTier =
+    state.combo >= 20 ? 3 :
+    state.combo >= 10 ? 2 :
+    state.combo >= 5  ? 1 : 0;
+
   return (
-    <div ref={playRef} className={`vs vs--play ${statusClass}`} onPointerDown={onTapZone}>
+    <div
+      ref={playRef}
+      className={`vs vs--play ${statusClass} vs--combo-${comboTier}`}
+      onPointerDown={onTapZone}
+      data-combo={state.combo}
+    >
       <AmbientOverlay />
       <div className="vs__edgeFlash" />
       <div className="vs__criticalStrobe" />
       <div className="vs__chromaShift" />
+      <ComboGlow tier={comboTier} />
+      <ComboShockwave combo={state.combo} />
+      <ComboBadge combo={state.combo} tier={comboTier} />
       <StatusStrip state={state} />
       <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} frameRef={patientFrameRef} />
       <Hud state={state} patientName={patient.name || patient.telegram_id} />
@@ -339,7 +354,7 @@ export default function VitalSigns() {
           {state.totalTaps < 3 ? t('play.hint') : ''}
         </div>
         <TapFeedback quality={state.lastQuality} totalTaps={state.totalTaps} />
-        <SparkBurst totalTaps={state.totalTaps} quality={state.lastQuality} />
+        <SparkBurst totalTaps={state.totalTaps} quality={state.lastQuality} tier={comboTier} />
         <div className="vs__tapZoneCorners">
           <span /><span /><span /><span />
         </div>
@@ -353,8 +368,49 @@ export default function VitalSigns() {
   );
 }
 
-function SparkBurst({ totalTaps, quality }: { totalTaps: number; quality: ReturnType<typeof useHeartbeat>['state']['lastQuality'] }) {
-  // Emit a burst at every tap; only render visible for perfect/good
+function ComboGlow({ tier }: { tier: number }) {
+  // Always-rendered overlay; intensity controlled by `vs--combo-N` parent class.
+  return <div className={`vs__comboGlow tier-${tier}`} aria-hidden />;
+}
+
+function ComboShockwave({ combo }: { combo: number }) {
+  // One-shot ring pulse fires whenever combo crosses a tier boundary (5/10/20).
+  const lastTier = useRef(0);
+  const [burstId, setBurstId] = useState(0);
+  const [burstKind, setBurstKind] = useState<'small' | 'big' | 'max'>('small');
+
+  useEffect(() => {
+    const tier =
+      combo >= 20 ? 3 :
+      combo >= 10 ? 2 :
+      combo >= 5  ? 1 : 0;
+    if (tier > lastTier.current) {
+      lastTier.current = tier;
+      setBurstKind(tier >= 3 ? 'max' : tier >= 2 ? 'big' : 'small');
+      setBurstId((n) => n + 1);
+    } else if (tier < lastTier.current) {
+      // combo reset — clear tier baseline so a re-cross fires again
+      lastTier.current = tier;
+    }
+  }, [combo]);
+
+  if (burstId === 0) return null;
+  return <div key={burstId} className={`vs__shockwave is-${burstKind}`} aria-hidden />;
+}
+
+function ComboBadge({ combo, tier }: { combo: number; tier: number }) {
+  if (tier < 2) return null;
+  return (
+    <div className={`vs__comboBadge tier-${tier}`} aria-hidden>
+      <span className="vs__comboBadgeNum">×{combo}</span>
+      <span className="vs__comboBadgeLabel">{tier >= 3 ? 'CHARGED' : 'STREAK'}</span>
+    </div>
+  );
+}
+
+function SparkBurst({ totalTaps, quality, tier }: { totalTaps: number; quality: ReturnType<typeof useHeartbeat>['state']['lastQuality']; tier: number }) {
+  // Emit a burst at every tap; only render visible for perfect/good.
+  // Combo tier inflates the spark count + travel distance.
   const [count, setCount] = useState(0);
   const last = useRef(0);
   useEffect(() => {
@@ -365,10 +421,12 @@ function SparkBurst({ totalTaps, quality }: { totalTaps: number; quality: Return
 
   if (count === 0 || (quality !== 'perfect' && quality !== 'good')) return null;
 
-  const sparks = quality === 'perfect' ? 8 : 5;
+  const base = quality === 'perfect' ? 8 : 5;
+  const sparks = base + tier * 3; // 8/11/14/17 at perfect across tiers
+  const dist = 56 + tier * 14;    // 56/70/84/98 px
   const klass = quality === 'perfect' ? 'is-perfect' : 'is-good';
   return (
-    <div className={`vs-spark ${klass}`} key={count}>
+    <div className={`vs-spark ${klass} tier-${tier}`} key={count} style={{ ['--dist' as any]: `${dist}px` }}>
       {Array.from({ length: sparks }).map((_, i) => (
         <span key={i} style={{ ['--angle' as any]: `${(360 / sparks) * i}deg` }} />
       ))}

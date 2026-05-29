@@ -164,6 +164,142 @@
   100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(56px); opacity: 0; }
 }
 
+// ─── Combo visual accumulation ─────────────────────────
+// Outer screen glow — intensity ramps with combo tier.
+.vs__comboGlow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  transition: box-shadow .35s ease, background .35s ease;
+  box-shadow: inset 0 0 0 0 transparent;
+}
+.vs--combo-1 .vs__comboGlow {
+  box-shadow:
+    inset 0 0 70px fade(@trace, 14%),
+    inset 0 0 0 1px fade(@trace, 20%);
+}
+.vs--combo-2 .vs__comboGlow {
+  box-shadow:
+    inset 0 0 100px fade(@trace, 26%),
+    inset 0 0 0 1px fade(@trace, 35%);
+}
+.vs--combo-3 .vs__comboGlow {
+  box-shadow:
+    inset 0 0 140px fade(@trace, 42%),
+    inset 0 0 0 2px fade(@trace, 60%);
+  animation: vs-combo-charged 1.6s ease-in-out infinite;
+}
+@keyframes vs-combo-charged {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.06); }
+}
+
+// Combo tier also brightens the patient frame's halo
+.vs--combo-1 .vs-patient__frame { box-shadow: 0 0 28px fade(@trace, 22%), inset 0 0 18px fade(black, 70%); }
+.vs--combo-2 .vs-patient__frame { box-shadow: 0 0 42px fade(@trace, 38%), inset 0 0 18px fade(black, 60%); border-color: fade(@trace, 55%); }
+.vs--combo-3 .vs-patient__frame {
+  box-shadow: 0 0 64px fade(@trace, 60%), inset 0 0 18px fade(black, 55%);
+  border-color: fade(@trace, 80%);
+  border-width: 2px;
+}
+
+// ECG glow ramps with combo
+.vs--combo-2 .vs__monitor { border-color: fade(@trace, 35%); }
+.vs--combo-3 .vs__monitor {
+  border-color: fade(@trace, 60%);
+  box-shadow: 0 0 18px fade(@trace, 25%);
+}
+
+// Combo shockwave — one-shot expanding ring on tier crossing
+.vs__shockwave {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 40px; height: 40px;
+  margin-left: -20px; margin-top: -20px;
+  border-radius: 50%;
+  border: 2px solid @trace;
+  pointer-events: none;
+  z-index: 7;
+  opacity: 0;
+  animation: vs-shockwave 900ms ease-out forwards;
+  &.is-big  { animation-duration: 1100ms; border-width: 3px; }
+  &.is-max  { animation-duration: 1400ms; border-width: 3px; border-color: @accent; }
+}
+@keyframes vs-shockwave {
+  0%   { transform: scale(.2); opacity: 1; border-width: 4px; }
+  40%  { opacity: 1; }
+  100% { transform: scale(18); opacity: 0; border-width: 1px; }
+}
+
+// Big floating combo badge — appears when tier >= 2.
+// Placed inside the tap zone (lower third of viewport), centered, above
+// the target ring + sparks but below punch overlays.
+.vs__comboBadge {
+  position: absolute;
+  bottom: 22%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  text-align: center;
+  pointer-events: none;
+  z-index: 6;
+  animation: vs-combo-badge-in 240ms ease-out;
+}
+.vs__comboBadgeNum {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  color: @trace;
+  text-shadow:
+    0 0 18px fade(@trace, 80%),
+    0 0 36px fade(@trace, 55%);
+  animation: vs-combo-badge-throb 1s ease-in-out infinite;
+}
+.vs__comboBadgeLabel {
+  display: block;
+  margin-top: 4px;
+  font-size: 9.5px;
+  letter-spacing: .35em;
+  color: fade(@trace, 70%);
+  animation: vs-hint 1.4s ease-in-out infinite;
+}
+.vs__comboBadge.tier-3 .vs__comboBadgeNum {
+  color: @accent;
+  text-shadow:
+    0 0 22px fade(@accent, 80%),
+    0 0 44px fade(@accent, 55%),
+    0 0 12px fade(@trace, 40%);
+  font-size: 68px;
+}
+.vs__comboBadge.tier-3 .vs__comboBadgeLabel { color: fade(@accent, 80%); }
+@keyframes vs-combo-badge-in {
+  0%   { opacity: 0; transform: translate(-50%, 12px) scale(.6); }
+  60%  { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes vs-combo-badge-throb {
+  0%, 100% { text-shadow: 0 0 18px fade(@trace, 80%), 0 0 36px fade(@trace, 55%); }
+  50%      { text-shadow: 0 0 28px fade(@trace, 100%), 0 0 52px fade(@trace, 75%); }
+}
+
+// Spark — distance now uses CSS variable
+@keyframes vs-spark-burst-tiered {
+  0%   { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0px); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(var(--dist, 56px)); opacity: 0; }
+}
+.vs-spark {
+  --dist: 56px;
+  span { animation-name: vs-spark-burst-tiered; }
+}
+.vs-spark.tier-2 span { background: lighten(@trace, 5%); box-shadow: 0 0 10px @trace; }
+.vs-spark.tier-3 span {
+  background: @accent;
+  box-shadow: 0 0 10px @accent, 0 0 18px fade(@accent, 50%);
+}
+
 // Patient frame chest-jolt — vertical compression on tap
 @keyframes vs-frame-jolt-strong {
   0%   { transform: scale(1) translateY(0); }
