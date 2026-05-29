@@ -21,35 +21,87 @@
   flex-direction: column;
 }
 
-// ─── Tap punch FX (screen shake + edge flash + spark) ──
-@keyframes vs-punch-perfect {
-  0%   { transform: translate(0, 0); }
-  18%  { transform: translate(-3px, 4px) scale(1.008); }
-  38%  { transform: translate(3px, -2px) scale(1.005); }
-  58%  { transform: translate(-2px, 1px); }
-  78%  { transform: translate(1px, 0); }
-  100% { transform: translate(0, 0); }
+// ─── Layered differential shake ────────────────────────
+// 4 weight layers (heavy/medium/light/air) × 3 qualities (perfect/good/miss).
+// Container does NOT shake itself — each child layer animates independently
+// so the scene feels physically stratified (light things move more, heavy
+// things barely budge).
+//
+// Easing: cubic-bezier(.3, 1.45, .4, 1) — overshoot then settle (spring).
+
+@_ease: cubic-bezier(.3, 1.45, .4, 1);
+
+// HEAVY layer — instrument body / patient frame (≤ 1px, no rotate)
+@keyframes vs-h-p { 0%, 100% { transform: translate(0, 0); } 30% { transform: translate(.5px, -1px); } 70% { transform: translate(-.5px, .5px); } }
+@keyframes vs-h-g { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(0, -.5px); } }
+@keyframes vs-h-m { 0%, 100% { transform: translate(0, 0) rotate(0); } 40% { transform: translate(.5px, .5px) rotate(.1deg); } }
+
+// MEDIUM layer — HUD, monitor wrap (1-2.5px, no rotate)
+@keyframes vs-m-p { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-1.5px, 2.5px); } 60% { transform: translate(1.2px, -1.4px); } 85% { transform: translate(-.5px, .5px); } }
+@keyframes vs-m-g { 0%, 100% { transform: translate(0, 0); } 35% { transform: translate(-1px, 1.4px); } 70% { transform: translate(.8px, -.7px); } }
+@keyframes vs-m-m { 0%, 100% { transform: translate(0, 0) rotate(0); } 22% { transform: translate(2px, -1px) rotate(.2deg); } 55% { transform: translate(-1.5px, 1.5px) rotate(-.15deg); } 80% { transform: translate(.8px, 0); } }
+
+// LIGHT layer — channel labels, corners, tap zone box (2.5-4px + .3deg)
+@keyframes vs-l-p { 0%, 100% { transform: translate(0, 0) rotate(0); } 18% { transform: translate(-3px, 3.5px) rotate(.3deg); } 50% { transform: translate(2.4px, -2.2px) rotate(-.22deg); } 80% { transform: translate(-1px, .8px) rotate(.1deg); } }
+@keyframes vs-l-g { 0%, 100% { transform: translate(0, 0) rotate(0); } 28% { transform: translate(-2px, 2.4px) rotate(.18deg); } 65% { transform: translate(1.6px, -1.3px) rotate(-.12deg); } }
+@keyframes vs-l-m { 0%, 100% { transform: translate(0, 0) rotate(0); } 16% { transform: translate(3.5px, -2px) rotate(.4deg); } 48% { transform: translate(-3px, 2.5px) rotate(-.35deg); } 78% { transform: translate(1.5px, -1px) rotate(.15deg); } }
+
+// AIR layer — target ring, hint text, release button (4-6px + 1-1.8deg)
+@keyframes vs-a-p { 0%, 100% { transform: translate(0, 0) rotate(0); } 18% { transform: translate(-5px, 6px) rotate(-1.6deg); } 45% { transform: translate(4px, -3.5px) rotate(1.3deg); } 72% { transform: translate(-2px, 1.5px) rotate(-.5deg); } }
+@keyframes vs-a-g { 0%, 100% { transform: translate(0, 0) rotate(0); } 25% { transform: translate(-3.5px, 4px) rotate(-1.1deg); } 60% { transform: translate(3px, -2px) rotate(.9deg); } }
+@keyframes vs-a-m { 0%, 100% { transform: translate(0, 0) rotate(0); } 14% { transform: translate(5.5px, -3px) rotate(1.7deg); } 42% { transform: translate(-5px, 4px) rotate(-1.5deg); } 70% { transform: translate(3px, -2px) rotate(.7deg); } }
+
+// AIR variants for elements with baseline translateX(-50%) — included so the
+// shake doesn't clobber their center alignment.
+@keyframes vs-a-p-tx { 0%, 100% { transform: translateX(-50%); } 18% { transform: translateX(calc(-50% - 5px)) translateY(6px) rotate(-1.6deg); } 45% { transform: translateX(calc(-50% + 4px)) translateY(-3.5px) rotate(1.3deg); } 72% { transform: translateX(calc(-50% - 2px)) translateY(1.5px) rotate(-.5deg); } }
+@keyframes vs-a-g-tx { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 3.5px)) translateY(4px) rotate(-1.1deg); } 60% { transform: translateX(calc(-50% + 3px)) translateY(-2px) rotate(.9deg); } }
+@keyframes vs-a-m-tx { 0%, 100% { transform: translateX(-50%); } 14% { transform: translateX(calc(-50% + 5.5px)) translateY(-3px) rotate(1.7deg); } 42% { transform: translateX(calc(-50% - 5px)) translateY(4px) rotate(-1.5deg); } 70% { transform: translateX(calc(-50% + 3px)) translateY(-2px) rotate(.7deg); } }
+
+// HEAVY translateX(-50%) variant — for the watermark
+@keyframes vs-h-p-tx { 0%, 100% { transform: translateX(-50%); } 30% { transform: translateX(calc(-50% + .5px)) translateY(-1px); } 70% { transform: translateX(calc(-50% - .5px)) translateY(.5px); } }
+@keyframes vs-h-g-tx { 0%, 100% { transform: translateX(-50%); } 50% { transform: translateX(-50%) translateY(-.5px); } }
+@keyframes vs-h-m-tx { 0%, 100% { transform: translateX(-50%) rotate(0); } 40% { transform: translateX(calc(-50% + .5px)) translateY(.5px) rotate(.1deg); } }
+
+// Each layer animates ONE element per group — never both a parent and its
+// child, since transforms compound multiplicatively down the DOM tree.
+.vs--punch-perfect {
+  .vs-strip,
+  .vs-patient                  { animation: vs-h-p 220ms @_ease; }
+  .vs__watermark               { animation: vs-h-p-tx 220ms @_ease; }
+  .vs-hud                      { animation: vs-m-p 240ms @_ease; }
+  .vs__monitor                 { animation: vs-m-p 260ms @_ease both reverse; }
+  .vs__tapZone                 { animation: vs-l-p 220ms @_ease; }
+  .vs__channelLabel            { animation: vs-a-p 260ms @_ease; }
+  .vs-target                   { animation: vs-a-p 280ms @_ease both reverse; }
+  .vs__tapHint                 { animation: vs-a-p 240ms @_ease; }
+  .vs__release                 { animation: vs-a-p-tx 260ms @_ease; }
 }
-@keyframes vs-punch-good {
-  0%   { transform: translate(0, 0); }
-  25%  { transform: translate(-2px, 2px); }
-  50%  { transform: translate(2px, -1px); }
-  75%  { transform: translate(-1px, 0); }
-  100% { transform: translate(0, 0); }
+.vs--punch-good {
+  .vs-strip,
+  .vs-patient                  { animation: vs-h-g 200ms @_ease; }
+  .vs__watermark               { animation: vs-h-g-tx 200ms @_ease; }
+  .vs-hud                      { animation: vs-m-g 220ms @_ease; }
+  .vs__monitor                 { animation: vs-m-g 240ms @_ease both reverse; }
+  .vs__tapZone                 { animation: vs-l-g 200ms @_ease; }
+  .vs__channelLabel            { animation: vs-a-g 240ms @_ease; }
+  .vs-target                   { animation: vs-a-g 260ms @_ease both reverse; }
+  .vs__tapHint                 { animation: vs-a-g 220ms @_ease; }
+  .vs__release                 { animation: vs-a-g-tx 240ms @_ease; }
 }
-@keyframes vs-punch-miss {
-  0%   { transform: translate(0, 0); }
-  15%  { transform: translate(4px, -2px) rotate(.2deg); }
-  35%  { transform: translate(-4px, 3px) rotate(-.2deg); }
-  55%  { transform: translate(3px, -2px); }
-  75%  { transform: translate(-2px, 1px); }
-  100% { transform: translate(0, 0); }
-}
-.vs--punch-perfect { animation: vs-punch-perfect 200ms ease-out; }
-.vs--punch-good    { animation: vs-punch-good    160ms ease-out; }
 .vs--punch-early,
-.vs--punch-late    { animation: vs-punch-miss    180ms ease-out; }
-.vs--punch-off     { animation: vs-punch-miss    200ms ease-out; }
+.vs--punch-late,
+.vs--punch-off {
+  .vs-strip,
+  .vs-patient                  { animation: vs-h-m 220ms @_ease; }
+  .vs__watermark               { animation: vs-h-m-tx 220ms @_ease; }
+  .vs-hud                      { animation: vs-m-m 240ms @_ease; }
+  .vs__monitor                 { animation: vs-m-m 260ms @_ease both reverse; }
+  .vs__tapZone                 { animation: vs-l-m 240ms @_ease; }
+  .vs__channelLabel            { animation: vs-a-m 280ms @_ease; }
+  .vs-target                   { animation: vs-a-m 300ms @_ease both reverse; }
+  .vs__tapHint                 { animation: vs-a-m 260ms @_ease; }
+  .vs__release                 { animation: vs-a-m-tx 280ms @_ease; }
+}
 
 // Edge flash overlay — radial vignette colored by tap quality
 .vs__edgeFlash {
@@ -753,7 +805,8 @@
   position: relative;
 }
 
-// Target metronome cue — pulses at target BPM
+// Target metronome cue — pulses at target BPM (duration via CSS var so the
+// punch-shake rules can fully override the animation shorthand).
 .vs-target {
   position: absolute;
   width: 80px;
@@ -761,7 +814,7 @@
   border-radius: 50%;
   border: 1.5px solid fade(@trace, 30%);
   pointer-events: none;
-  animation: vs-target-pulse 1s ease-in-out infinite;
+  animation: vs-target-pulse var(--vs-target-dur, 1000ms) ease-in-out infinite;
   z-index: 1;
   &.is-lethal { display: none; }
 }

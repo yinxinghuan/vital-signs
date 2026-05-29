@@ -520,14 +520,15 @@ function PatientCard({ patient, state, dying, bpm, frameRef }: { patient: Patien
 
 function TargetRing({ targetBPM, status }: { targetBPM: number; status: string }) {
   // CSS pulse cue synchronized to the patient's current target BPM.
-  // animation-duration is set inline so it re-syncs when BPM drifts.
+  // Duration goes through a CSS var so the punch-shake CSS rules can override
+  // animation-name+duration cleanly (inline `animationDuration` would win
+  // against the shake rule and slow the shake to BPM speed).
   const durationMs = 60000 / Math.max(20, targetBPM);
   const isLethal = status === 'flatline' || status === 'vfib';
   return (
     <div
       className={`vs-target ${isLethal ? 'is-lethal' : ''}`}
-      style={{ animationDuration: `${durationMs}ms` }}
-      // Re-key forces the animation to reset whenever BPM crosses 5-bpm bucket.
+      style={{ ['--vs-target-dur' as any]: `${durationMs}ms` }}
       key={Math.round(targetBPM / 5)}
     />
   );
