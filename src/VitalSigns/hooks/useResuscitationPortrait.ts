@@ -52,6 +52,30 @@ const PROMPTS: Record<PortraitVariant, string> = {
 interface CacheEntry { url: string | null; promise: Promise<string> | null }
 const cache = new Map<string, CacheEntry>();    // key = `${telegram_id}::${variant}`
 
+// Retry pattern: long-running fetches (30-200s) routinely die when iOS /
+// Telegram WebView suspends background tabs during scroll. Without retry
+// the slot is dead for the session. Schedule: 5s → 15s → 45s.
+const RETRY_DELAYS_MS = [2000, 8000, 25000];
+
+async function generateWithRetry(
+  fn: (opts: { prompt: string; ref_url: string }) => Promise<string>,
+  opts: { prompt: string; ref_url: string },
+  onAttempt?: (attempt: number, err: Error) => void,
+): Promise<string> {
+  let lastErr: Error = new Error('no attempts');
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn(opts);
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+      onAttempt?.(attempt, lastErr);
+      if (attempt >= RETRY_DELAYS_MS.length) break;
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw lastErr;
+}
+
 export interface UseResuscitationPortraits {
   variants: Record<PortraitVariant, string | null>;
   loading: Record<PortraitVariant, boolean>;
@@ -100,9 +124,17 @@ export function useResuscitationPortraits(patient: Patient | null): UseResuscita
         continue;
       }
 
-      // Fresh fire
+      // Fresh fire — wrapped in retry-with-backoff so scroll-induced
+      // fetch cancels don't kill the slot for the session.
       setLoading((s) => ({ ...s, [v]: true }));
-      const promise = generate({ prompt: PROMPTS[v], ref_url: patient.head_url });
+      const promise = generateWithRetry(
+        generate,
+        { prompt: PROMPTS[v], ref_url: patient.head_url },
+        (attempt, err) => {
+          // eslint-disable-next-line no-console
+          console.warn(`[er-portrait] ${v} attempt ${attempt + 1} failed:`, err.message);
+        },
+      );
       cache.set(key, { url: null, promise });
       promise
         .then((u) => {

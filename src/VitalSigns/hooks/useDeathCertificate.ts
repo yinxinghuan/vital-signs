@@ -81,6 +81,31 @@ const DISCHARGE_PROMPT =
   `Editorial mood photograph, gentle warmth, AlterU After Dark soft-tone variant, ` +
   `no text in image, no captions.`;
 
+// Retry pattern: long-running fetches (~30-200s for gen-image, ~10-30s for
+// chat) routinely die when iOS / Telegram WebView suspends background tabs
+// during scroll. Without retry the cert/morgue slot stays empty for the
+// rest of the session. Schedule: 5s → 15s → 45s.
+const RETRY_DELAYS_MS = [2000, 8000, 25000];
+
+async function withRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  let lastErr: Error = new Error('no attempts');
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e));
+      // eslint-disable-next-line no-console
+      console.warn(`[cert/${label}] attempt ${attempt + 1} failed:`, lastErr.message);
+      if (attempt >= RETRY_DELAYS_MS.length) break;
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+  throw lastErr;
+}
+
 function extractJson(raw: string): DeathCertificate | null {
   // Strip potential code fences and find the outermost JSON object
   const trimmed = raw.replace(/```(?:json)?/gi, '').trim();
@@ -159,7 +184,7 @@ export function useDeathCertificate(): UseDeathCertificate {
       `Final rhythm: ${causeWord}.\n` +
       `Return ONLY the JSON object as specified.`;
 
-    const chatPromise = sendChat(userPrompt)
+    const chatPromise = withRetry('chat', () => sendChat(userPrompt))
       .then((raw) => {
         if (inFlightId.current !== myId) return;
         const parsed = extractJson(raw);
@@ -175,7 +200,7 @@ export function useDeathCertificate(): UseDeathCertificate {
       });
 
     const imgPromise = patient.head_url
-      ? callGenImage({ prompt: imagePrompt, ref_url: patient.head_url })
+      ? withRetry('morgue', () => callGenImage({ prompt: imagePrompt, ref_url: patient.head_url }))
           .then((url) => {
             if (inFlightId.current !== myId) return;
             setMorgueUrl(url);
