@@ -193,8 +193,27 @@ export default function VitalSigns() {
     setPhase('playing');
   }, [patient]);
 
+  const playRef = useRef<HTMLDivElement>(null);
+  const patientFrameRef = useRef<HTMLDivElement>(null);
+
   const onTapZone = useCallback(() => {
-    if (phase === 'playing') tap();
+    if (phase !== 'playing') return;
+    const q = tap();
+    if (!q) return;
+    // Visual punch: classList toggle (no React re-render per tap)
+    const cls = `vs--punch-${q}`;
+    const el = playRef.current;
+    const fr = patientFrameRef.current;
+    if (el) {
+      el.classList.remove('vs--punch-perfect', 'vs--punch-good', 'vs--punch-early', 'vs--punch-late', 'vs--punch-off');
+      void el.offsetWidth; // force reflow → re-trigger animation
+      el.classList.add(cls);
+    }
+    if (fr) {
+      fr.classList.remove('is-jolt-strong', 'is-jolt-soft');
+      void fr.offsetWidth;
+      fr.classList.add(q === 'perfect' || q === 'good' ? 'is-jolt-strong' : 'is-jolt-soft');
+    }
   }, [phase, tap]);
 
   // ─── Loading / empty state ───
@@ -284,11 +303,19 @@ export default function VitalSigns() {
     );
   }
 
+  const statusClass =
+    state.status === 'critical' ? 'is-critical' :
+    state.status === 'flatline' ? 'is-flatline' :
+    state.status === 'vfib' ? 'is-vfib' : '';
+
   return (
-    <div className="vs vs--play" onPointerDown={onTapZone}>
+    <div ref={playRef} className={`vs vs--play ${statusClass}`} onPointerDown={onTapZone}>
       <AmbientOverlay />
+      <div className="vs__edgeFlash" />
+      <div className="vs__criticalStrobe" />
+      <div className="vs__chromaShift" />
       <StatusStrip state={state} />
-      <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} />
+      <PatientCard patient={patient} state={state.status} bpm={state.targetBPM} frameRef={patientFrameRef} />
       <Hud state={state} patientName={patient.name || patient.telegram_id} />
       <div className="vs__monitor">
         <div className="vs__channel">
@@ -312,6 +339,7 @@ export default function VitalSigns() {
           {state.totalTaps < 3 ? t('play.hint') : ''}
         </div>
         <TapFeedback quality={state.lastQuality} totalTaps={state.totalTaps} />
+        <SparkBurst totalTaps={state.totalTaps} quality={state.lastQuality} />
         <div className="vs__tapZoneCorners">
           <span /><span /><span /><span />
         </div>
@@ -321,6 +349,29 @@ export default function VitalSigns() {
         onRelease={(e) => { e.stopPropagation(); releasePatient(); }}
       />
       <Watermark />
+    </div>
+  );
+}
+
+function SparkBurst({ totalTaps, quality }: { totalTaps: number; quality: ReturnType<typeof useHeartbeat>['state']['lastQuality'] }) {
+  // Emit a burst at every tap; only render visible for perfect/good
+  const [count, setCount] = useState(0);
+  const last = useRef(0);
+  useEffect(() => {
+    if (totalTaps === last.current) return;
+    last.current = totalTaps;
+    setCount((c) => c + 1);
+  }, [totalTaps]);
+
+  if (count === 0 || (quality !== 'perfect' && quality !== 'good')) return null;
+
+  const sparks = quality === 'perfect' ? 8 : 5;
+  const klass = quality === 'perfect' ? 'is-perfect' : 'is-good';
+  return (
+    <div className={`vs-spark ${klass}`} key={count}>
+      {Array.from({ length: sparks }).map((_, i) => (
+        <span key={i} style={{ ['--angle' as any]: `${(360 / sparks) * i}deg` }} />
+      ))}
     </div>
   );
 }
@@ -368,7 +419,7 @@ function AmbientOverlay() {
   );
 }
 
-function PatientCard({ patient, state, dying, bpm }: { patient: Patient; state?: string; dying?: boolean; bpm?: number }) {
+function PatientCard({ patient, state, dying, bpm, frameRef }: { patient: Patient; state?: string; dying?: boolean; bpm?: number; frameRef?: React.RefObject<HTMLDivElement> }) {
   const initials = useMemo(() => (patient.name || patient.telegram_id || '?').slice(0, 2).toUpperCase(), [patient]);
   const idTag = useMemo(() => {
     // deterministic fake patient ID from telegram_id
@@ -395,7 +446,7 @@ function PatientCard({ patient, state, dying, bpm }: { patient: Patient; state?:
         <div className="vs-patient__ivLine" />
         <div className="vs-patient__ivDrop" />
       </div>
-      <div className="vs-patient__frame">
+      <div className="vs-patient__frame" ref={frameRef}>
         {patient.head_url ? (
           <img src={patient.head_url} alt="" draggable={false} referrerPolicy="no-referrer" />
         ) : (

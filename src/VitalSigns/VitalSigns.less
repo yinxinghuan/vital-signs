@@ -21,6 +21,169 @@
   flex-direction: column;
 }
 
+// ─── Tap punch FX (screen shake + edge flash + spark) ──
+@keyframes vs-punch-perfect {
+  0%   { transform: translate(0, 0); }
+  18%  { transform: translate(-3px, 4px) scale(1.008); }
+  38%  { transform: translate(3px, -2px) scale(1.005); }
+  58%  { transform: translate(-2px, 1px); }
+  78%  { transform: translate(1px, 0); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes vs-punch-good {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-2px, 2px); }
+  50%  { transform: translate(2px, -1px); }
+  75%  { transform: translate(-1px, 0); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes vs-punch-miss {
+  0%   { transform: translate(0, 0); }
+  15%  { transform: translate(4px, -2px) rotate(.2deg); }
+  35%  { transform: translate(-4px, 3px) rotate(-.2deg); }
+  55%  { transform: translate(3px, -2px); }
+  75%  { transform: translate(-2px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+.vs--punch-perfect { animation: vs-punch-perfect 200ms ease-out; }
+.vs--punch-good    { animation: vs-punch-good    160ms ease-out; }
+.vs--punch-early,
+.vs--punch-late    { animation: vs-punch-miss    180ms ease-out; }
+.vs--punch-off     { animation: vs-punch-miss    200ms ease-out; }
+
+// Edge flash overlay — radial vignette colored by tap quality
+.vs__edgeFlash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 60%, transparent 50%, transparent 60%, fade(@trace, 0%) 100%);
+  transition: opacity .08s ease;
+  mix-blend-mode: screen;
+}
+.vs--punch-perfect .vs__edgeFlash {
+  opacity: 1;
+  background: radial-gradient(ellipse at 50% 60%, transparent 45%, fade(@trace, 55%) 100%);
+  animation: vs-flash-fade 220ms ease-out forwards;
+}
+.vs--punch-good .vs__edgeFlash {
+  opacity: 1;
+  background: radial-gradient(ellipse at 50% 60%, transparent 50%, fade(@trace, 30%) 100%);
+  animation: vs-flash-fade 180ms ease-out forwards;
+}
+.vs--punch-early .vs__edgeFlash,
+.vs--punch-late  .vs__edgeFlash {
+  opacity: 1;
+  background: radial-gradient(ellipse at 50% 60%, transparent 50%, fade(@warn, 35%) 100%);
+  animation: vs-flash-fade 200ms ease-out forwards;
+}
+.vs--punch-off .vs__edgeFlash {
+  opacity: 1;
+  background: radial-gradient(ellipse at 50% 60%, transparent 45%, fade(@danger, 45%) 100%);
+  animation: vs-flash-fade 220ms ease-out forwards;
+}
+@keyframes vs-flash-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+// Critical-state always-on strobe overlay
+.vs__criticalStrobe {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: fade(@danger, 16%);
+  opacity: 0;
+}
+.vs--play.is-critical .vs__criticalStrobe {
+  animation: vs-strobe-critical 700ms ease-in-out infinite;
+}
+.vs--play.is-flatline .vs__criticalStrobe {
+  animation: vs-strobe-fatal 350ms steps(2) infinite;
+}
+.vs--play.is-vfib .vs__criticalStrobe {
+  animation: vs-strobe-fatal 120ms steps(2) infinite;
+}
+@keyframes vs-strobe-critical {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+@keyframes vs-strobe-fatal {
+  0%   { opacity: .9; }
+  100% { opacity: 0; }
+}
+
+// Chromatic aberration on V-fib — split RGB channels via box-shadow trick
+.vs__chromaShift {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  mix-blend-mode: screen;
+  opacity: 0;
+  background:
+    linear-gradient(90deg, fade(red, 5%) 0%, transparent 50%, fade(cyan, 5%) 100%);
+}
+.vs--play.is-vfib .vs__chromaShift {
+  opacity: 1;
+  animation: vs-chroma 90ms steps(2) infinite;
+}
+@keyframes vs-chroma {
+  0%   { transform: translateX(-3px); opacity: .9; }
+  100% { transform: translateX(3px); opacity: .6; }
+}
+
+// Spark burst — radiate dots from tap zone center
+.vs-spark {
+  position: absolute;
+  width: 0; height: 0;
+  top: 50%; left: 50%;
+  pointer-events: none;
+  z-index: 4;
+  span {
+    --angle: 0deg;
+    position: absolute;
+    left: 0; top: 0;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: @trace;
+    box-shadow: 0 0 8px @trace;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0px);
+    opacity: 0;
+    animation: vs-spark-burst 380ms ease-out forwards;
+  }
+  &.is-good span {
+    background: @text;
+    box-shadow: 0 0 5px @text;
+  }
+}
+@keyframes vs-spark-burst {
+  0%   { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0px); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--angle)) translateY(56px); opacity: 0; }
+}
+
+// Patient frame chest-jolt — vertical compression on tap
+@keyframes vs-frame-jolt-strong {
+  0%   { transform: scale(1) translateY(0); }
+  22%  { transform: scale(1.06, 0.96) translateY(3px); }
+  55%  { transform: scale(0.97, 1.04) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+@keyframes vs-frame-jolt-soft {
+  0%   { transform: scale(1) translateY(0); }
+  35%  { transform: scale(1.03, 0.98) translateY(1.5px); }
+  100% { transform: scale(1) translateY(0); }
+}
+.vs-patient__frame.is-jolt-strong {
+  // override the breathing animation briefly
+  animation: vs-frame-jolt-strong 240ms ease-out !important;
+}
+.vs-patient__frame.is-jolt-soft {
+  animation: vs-frame-jolt-soft 200ms ease-out !important;
+}
+
 // ─── Ambient overlays ───────────────────────────────────
 .vs-ambient {
   position: absolute;
