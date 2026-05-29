@@ -45,17 +45,21 @@ export interface UseHeartbeatOptions {
 }
 
 const DEFAULTS = {
-  perfectWindow: 90,    // ±ms from expected — eased from 65 in v0.8
-  goodWindow: 180,      // eased from 130
-  offWindow: 320,       // eased from 250
-  missGraceMs: 750,     // eased from 600
-  decayThreshold: 5,    // up from 4 — one extra forgiveness beat
+  // v0.11: judgment is wide-open. Goal is decisive rounds (5-15s), not a
+  // precision rhythm test. User feedback: previous values made both success
+  // and failure too hard — game stuck in limbo.
+  perfectWindow: 140,   // ±ms from expected
+  goodWindow: 280,
+  offWindow: 450,
+  missGraceMs: 1000,    // 1s grace past expected beat before counting miss
+  decayThreshold: 3,    // 3 missed beats → flatline (was 5)
   vfibThreshold: 5,     // taps within 700ms → vfib (unchanged)
 };
 
-// Survival eligibility — tap to RELEASE when both met.
-export const RELEASE_LIFE_SECONDS = 50;
-export const RELEASE_BEST_COMBO   = 12;
+// Survival eligibility — tap RELEASE when both met. Aggressively low so
+// players can win in a few good taps; combo 2 = two-in-a-row.
+export const RELEASE_LIFE_SECONDS = 8;
+export const RELEASE_BEST_COMBO   = 2;
 
 export function useHeartbeat(opts: UseHeartbeatOptions) {
   const [state, setState] = useState<HeartbeatState>({
