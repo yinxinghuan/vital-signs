@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './VitalSigns.less';
-import { useHeartbeat } from './hooks/useHeartbeat';
+import { useHeartbeat, RELEASE_LIFE_SECONDS, RELEASE_BEST_COMBO } from './hooks/useHeartbeat';
 import { useAigramContacts, pickRandomPatient } from './hooks/useAigramContacts';
 import { useDeathCertificate, type DeathCertificate as DCert } from './hooks/useDeathCertificate';
 import { useFateWall } from './hooks/useFateWall';
@@ -388,7 +388,11 @@ export default function VitalSigns() {
         </div>
       </div>
       <ReleaseButton
-        eligible={state.lifeSeconds >= 75 && state.bestCombo >= 20 && state.status === 'alive'}
+        eligible={
+          state.lifeSeconds >= RELEASE_LIFE_SECONDS &&
+          state.bestCombo >= RELEASE_BEST_COMBO &&
+          state.status === 'alive'
+        }
         onRelease={(e) => { e.stopPropagation(); releasePatient(); }}
       />
       <Watermark />

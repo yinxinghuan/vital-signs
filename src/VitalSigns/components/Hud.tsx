@@ -2,6 +2,7 @@
 // Big BPM digits, vitals row, combo, life-elapsed.
 
 import type { HeartbeatState } from '../hooks/useHeartbeat';
+import { RELEASE_LIFE_SECONDS, RELEASE_BEST_COMBO } from '../hooks/useHeartbeat';
 
 interface Props {
   state: HeartbeatState;
@@ -68,6 +69,51 @@ export default function Hud({ state, patientName }: Props) {
           <div className="vs-hud__combo">×{state.combo}</div>
         )}
         <div className="vs-hud__event">{state.events[0] || 'STEADY'}</div>
+      </div>
+
+      <RevivalProgress
+        lifeSeconds={state.lifeSeconds}
+        bestCombo={state.bestCombo}
+        canRelease={
+          state.lifeSeconds >= RELEASE_LIFE_SECONDS &&
+          state.bestCombo >= RELEASE_BEST_COMBO &&
+          state.status === 'alive'
+        }
+      />
+    </div>
+  );
+}
+
+function RevivalProgress({ lifeSeconds, bestCombo, canRelease }: {
+  lifeSeconds: number; bestCombo: number; canRelease: boolean;
+}) {
+  const timePct = Math.min(1, lifeSeconds / RELEASE_LIFE_SECONDS) * 100;
+  const comboPct = Math.min(1, bestCombo / RELEASE_BEST_COMBO) * 100;
+  const timeRem = Math.max(0, RELEASE_LIFE_SECONDS - lifeSeconds);
+  const comboRem = Math.max(0, RELEASE_BEST_COMBO - bestCombo);
+
+  return (
+    <div className={`vs-hud__revival ${canRelease ? 'is-ready' : ''}`}>
+      <div className="vs-hud__revivalLabel">
+        {canRelease ? 'REVIVAL UNLOCKED' : 'REVIVAL'}
+      </div>
+      <div className="vs-hud__bar">
+        <span className="vs-hud__barTag">TIME</span>
+        <div className="vs-hud__barTrack">
+          <div className="vs-hud__barFill" style={{ width: `${timePct}%` }} />
+        </div>
+        <span className="vs-hud__barRem">
+          {canRelease || timeRem === 0 ? '✓' : `${Math.ceil(timeRem)}s`}
+        </span>
+      </div>
+      <div className="vs-hud__bar">
+        <span className="vs-hud__barTag">STREAK</span>
+        <div className="vs-hud__barTrack">
+          <div className="vs-hud__barFill" style={{ width: `${comboPct}%` }} />
+        </div>
+        <span className="vs-hud__barRem">
+          {comboRem === 0 ? '✓' : `×${comboRem}`}
+        </span>
       </div>
     </div>
   );

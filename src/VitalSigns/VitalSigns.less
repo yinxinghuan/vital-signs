@@ -1110,6 +1110,68 @@
   }
   &__event { color: @warn; font-size: 11px; letter-spacing: .14em; }
 
+  // Revival progress dual bar — bottom of HUD
+  &__revival {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #16241d;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    &.is-ready {
+      border-top-color: fade(@trace, 50%);
+    }
+  }
+  &__revivalLabel {
+    color: @text-dim;
+    font-size: 9px;
+    letter-spacing: .25em;
+    .vs-hud__revival.is-ready & {
+      color: @trace;
+      animation: vs-hint 1.2s ease-in-out infinite;
+    }
+  }
+  &__bar {
+    display: grid;
+    grid-template-columns: 42px 1fr 32px;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    letter-spacing: .14em;
+  }
+  &__barTag {
+    color: @text-dim;
+  }
+  &__barTrack {
+    height: 5px;
+    background: #0d1612;
+    border: 1px solid #142019;
+    border-radius: 1px;
+    overflow: hidden;
+    position: relative;
+  }
+  &__barFill {
+    height: 100%;
+    background: linear-gradient(90deg, fade(@trace, 50%) 0%, @trace 100%);
+    box-shadow: 0 0 6px fade(@trace, 60%);
+    transition: width .35s ease;
+    .vs-hud__revival.is-ready & {
+      background: linear-gradient(90deg, @trace 0%, @accent 100%);
+      animation: vs-hud-bar-shimmer 1.4s linear infinite;
+      background-size: 200% 100%;
+    }
+  }
+  @keyframes vs-hud-bar-shimmer {
+    0%   { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+  }
+  &__barRem {
+    color: @text;
+    text-align: right;
+    font-feature-settings: "tnum";
+    .vs-hud__revival.is-ready & { color: @trace; }
+  }
+
   &.is-critical {
     border-color: @warn;
     animation: vs-critical-pulse 1.2s ease-in-out infinite;

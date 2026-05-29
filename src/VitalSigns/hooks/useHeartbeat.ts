@@ -45,13 +45,17 @@ export interface UseHeartbeatOptions {
 }
 
 const DEFAULTS = {
-  perfectWindow: 65,    // ±ms from expected
-  goodWindow: 130,
-  offWindow: 250,
-  missGraceMs: 600,     // ms past expected before counting as missed
-  decayThreshold: 4,    // consecutive missed beats → flatline
-  vfibThreshold: 5,     // taps within 700ms → vfib
+  perfectWindow: 90,    // ±ms from expected — eased from 65 in v0.8
+  goodWindow: 180,      // eased from 130
+  offWindow: 320,       // eased from 250
+  missGraceMs: 750,     // eased from 600
+  decayThreshold: 5,    // up from 4 — one extra forgiveness beat
+  vfibThreshold: 5,     // taps within 700ms → vfib (unchanged)
 };
+
+// Survival eligibility — tap to RELEASE when both met.
+export const RELEASE_LIFE_SECONDS = 50;
+export const RELEASE_BEST_COMBO   = 12;
 
 export function useHeartbeat(opts: UseHeartbeatOptions) {
   const [state, setState] = useState<HeartbeatState>({
