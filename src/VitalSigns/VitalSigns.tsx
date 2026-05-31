@@ -10,7 +10,7 @@ import { useDeathCertificate, type DeathCertificate as DCert } from './hooks/use
 import { useFateWall } from './hooks/useFateWall';
 import { useResuscitationPortraits } from './hooks/useResuscitationPortrait';
 import { useGameSave } from '@shared/save';
-import { useGameEvent } from '@shared/runtime';
+import { useGameEvent, isInAigram, openAigramProfile } from '@shared/runtime';
 import type { Patient, FateRecord, VitalSignsSave } from './types';
 import EcgCanvas from './components/EcgCanvas';
 import Hud from './components/Hud';
@@ -652,7 +652,20 @@ function Certificate({
           )}
         </div>
       </div>
-      <div className="vs-cert__namePlate">@{patient.name || patient.telegram_id}</div>
+      {/* Patient name plate — tap opens the patient's Aigram profile.
+          cross-user-profile-tap skill. */}
+      <button
+        type="button"
+        className="vs-cert__namePlate vs-cert__namePlate--btn"
+        onClick={(ev) => {
+          ev.stopPropagation();
+          if (isInAigram && patient.telegram_id) openAigramProfile(patient.telegram_id);
+        }}
+        disabled={!isInAigram || !patient.telegram_id}
+        aria-label={`Open ${patient.name || 'patient'}'s profile`}
+      >
+        @{patient.name || patient.telegram_id}
+      </button>
 
       <div className="vs-cert__row"><span>{t('cert.kept_alive')}</span><b>{lifeSeconds}s</b></div>
       <div className="vs-cert__row"><span>{t('cert.best_streak')}</span><b>×{bestCombo}</b></div>
