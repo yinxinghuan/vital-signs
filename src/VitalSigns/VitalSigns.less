@@ -1757,10 +1757,109 @@
     letter-spacing: .1em;
   }
   &__by, &__time { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__by {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: @text-dim;
+  }
   &__mine {
     color: @accent;
     font-weight: 500;
     letter-spacing: .2em;
+  }
+
+  // Patient name chip — avatar + @name button. Tap opens that user's
+  // Aigram profile. cross-user-avatar + cross-user-profile-tap skills.
+  &__patientChip {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: manipulation;
+    &:active { transform: scale(0.97); }
+    &:disabled { cursor: default; opacity: 1; }
+  }
+  &__patientAvatar {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: fade(@trace, 12%);
+    border: 1px solid fade(@trace, 35%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  }
+  &__patientLetter {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    color: @trace;
+  }
+
+  // Attending chip — bottom-row avatar + @name. Same pattern as patient.
+  &__byChip {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: @text-dim;
+    font: inherit;
+    font-size: 9.5px;
+    letter-spacing: .1em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: manipulation;
+    &:active { transform: scale(0.97); }
+    &:disabled { cursor: default; opacity: 1; }
+  }
+  &__byLabel {
+    color: @text-dim;
+    letter-spacing: .12em;
+  }
+  &__byAvatar {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: fade(@text-dim, 18%);
+    border: 1px solid fade(@text-dim, 30%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  }
+  &__byLetter {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 7px;
+    font-weight: 700;
+    color: @text-dim;
+  }
+  &__byName {
+    color: @text;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    letter-spacing: .08em;
   }
 
   &.is-mine {

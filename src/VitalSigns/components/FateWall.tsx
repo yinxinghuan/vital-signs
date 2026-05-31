@@ -1,7 +1,7 @@
 // Community fate wall — last 6 patients across all players.
 
 import { useState, useCallback } from 'react';
-import { useGameEvent } from '@shared/runtime';
+import { useGameEvent, isInAigram, openAigramProfile } from '@shared/runtime';
 import { isSelf, type WallEntry } from '../hooks/useFateWall';
 import { t } from '../i18n';
 
@@ -117,17 +117,69 @@ function FateCard({ entry }: { entry: WallEntry }) {
       </div>
       <div className="vs-fate__body">
         <div className="vs-fate__nameRow">
-          <span className="vs-fate__name">@{f.patientName || f.patientId}</span>
+          {/* Patient name chip — tappable, opens that user's Aigram
+              profile. cross-user-profile-tap skill. */}
+          <button
+            type="button"
+            className="vs-fate__patientChip"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              if (isInAigram && f.patientId) openAigramProfile(f.patientId);
+            }}
+            disabled={!isInAigram || !f.patientId}
+            aria-label={`Open ${f.patientName || 'patient'}'s profile`}
+          >
+            {f.patientAvatarUrl ? (
+              <span className="vs-fate__patientAvatar" aria-hidden>
+                <img src={f.patientAvatarUrl} alt="" draggable={false} referrerPolicy="no-referrer" />
+              </span>
+            ) : (
+              <span className="vs-fate__patientAvatar" aria-hidden>
+                <span className="vs-fate__patientLetter">
+                  {(f.patientName || '?')[0]?.toUpperCase()}
+                </span>
+              </span>
+            )}
+            <span className="vs-fate__name">@{f.patientName || f.patientId}</span>
+          </button>
           <span className="vs-fate__life">{Math.floor(f.lifeSeconds)}s · ×{f.bestCombo}</span>
         </div>
         <div className="vs-fate__cause">{f.cause}</div>
         {f.lastWords && <div className="vs-fate__quote">&ldquo;{f.lastWords}&rdquo;</div>}
         {f.verdict && <div className="vs-fate__verdict">{f.verdict}</div>}
         <div className="vs-fate__footer">
-          <span className="vs-fate__by">
-            {mine && <span className="vs-fate__mine">YOU · </span>}
-            attending: @{entry.byUserName || entry.byUserId.slice(0, 6)}
-          </span>
+          {/* Attending chip — when not self, tappable opens the attending's
+              profile. When self, plain 'YOU' accent. */}
+          {mine ? (
+            <span className="vs-fate__by">
+              <span className="vs-fate__mine">YOU</span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="vs-fate__by vs-fate__byChip"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                if (isInAigram) openAigramProfile(entry.byUserId);
+              }}
+              disabled={!isInAigram}
+              aria-label={`Open ${entry.byUserName || 'attending'}'s profile`}
+            >
+              <span className="vs-fate__byLabel">attending:</span>
+              {entry.byUserAvatarUrl ? (
+                <span className="vs-fate__byAvatar" aria-hidden>
+                  <img src={entry.byUserAvatarUrl} alt="" draggable={false} referrerPolicy="no-referrer" />
+                </span>
+              ) : (
+                <span className="vs-fate__byAvatar" aria-hidden>
+                  <span className="vs-fate__byLetter">
+                    {(entry.byUserName || '?')[0]?.toUpperCase()}
+                  </span>
+                </span>
+              )}
+              <span className="vs-fate__byName">@{entry.byUserName || entry.byUserId.slice(0, 6)}</span>
+            </button>
+          )}
           <span className="vs-fate__time">{fmtTimeAgo(f.createdAt)}</span>
         </div>
         <div className="vs-fate__reactRow">
@@ -144,7 +196,10 @@ function ReactButton({ kind, count, tapped, onTap }: { kind: ReactKind; count: n
   return (
     <button
       className={`vs-react vs-react--${kind} ${tapped ? 'is-tapped' : ''}`}
-      onPointerDown={(e) => { e.stopPropagation(); onTap(kind); }}
+      // onClick (not onPointerDown) — wall scrolls; pointerdown fires
+      // mid-swipe and triggers reactions while user is trying to scroll.
+      // See scroll-vs-click skill.
+      onClick={(e) => { e.stopPropagation(); onTap(kind); }}
       disabled={tapped}
       aria-label={kind}
     >
