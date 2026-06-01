@@ -1441,6 +1441,10 @@
   padding: 18px 20px 80px;
   gap: 6px;
   overflow-y: auto;
+  // .vs root sets touch-action:none for the gameplay screen; on the cert page
+  // we need vertical pan to scroll the discharge record on small viewports.
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 .vs-cert__head {
   font-size: 10px;
