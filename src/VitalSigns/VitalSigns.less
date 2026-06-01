@@ -1584,6 +1584,10 @@
 .vs--wallphase {
   display: block;
   overflow: hidden;
+  // .vs root sets touch-action:none for the gameplay screen; on the wall page
+  // the inner .vs-wall__list scroll container is blocked by the ancestor's
+  // touch-action unless we re-enable vertical pan here.
+  touch-action: pan-y;
 }
 .vs-wall {
   position: absolute;
