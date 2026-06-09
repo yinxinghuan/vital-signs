@@ -62,6 +62,12 @@ const EN = {
   'wall.empty1': 'no records yet.',
   'wall.empty2': 'be the first to lose someone.',
   'wall.back': '← back',
+
+  'notify.lost': '{sender_name} let your dream-heart stop on the table tonight.',
+  'notify.saved': '{sender_name} pulled you through the night shift.',
+  'notify.react.candle': '{sender_name} lit a candle on the wall for you.',
+  'notify.react.salute': '{sender_name} saluted your shift.',
+  'notify.react.rest': '{sender_name} sat with you on the wall.',
 };
 
 const ZH: typeof EN = {
@@ -109,6 +115,12 @@ const ZH: typeof EN = {
   'wall.empty1': '还没有记录。',
   'wall.empty2': '来做第一个失去病人的医生吧。',
   'wall.back': '← 返回',
+
+  'notify.lost': '{sender_name} 让你的梦心今夜停在了急诊台上。',
+  'notify.saved': '{sender_name} 把你从夜班里拉了回来。',
+  'notify.react.candle': '{sender_name} 在墙上为你点了一支蜡烛。',
+  'notify.react.salute': '{sender_name} 向你的班次敬礼。',
+  'notify.react.rest': '{sender_name} 在墙边陪你坐了会儿。',
 };
 
 const DICTS: Record<Locale, typeof EN> = { en: EN, zh: ZH };

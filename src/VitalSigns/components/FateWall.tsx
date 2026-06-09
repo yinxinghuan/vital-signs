@@ -80,19 +80,34 @@ function FateCard({ entry }: { entry: WallEntry }) {
   const [counts, setCounts] = useState<Record<ReactKind, number>>(initial);
   const [tapped, setTapped] = useState<Record<ReactKind, boolean>>({ candle: false, salute: false, rest: false });
 
+  const portraitUrl = pickFatePortrait(f);
+
   const react = useCallback((kind: ReactKind) => {
     if (tapped[kind]) return;
     setTapped((s) => ({ ...s, [kind]: true }));
     setCounts((s) => ({ ...s, [kind]: s[kind] + 1 }));
+    // Don't notify yourself when you tap on your own past shift.
+    if (mine) return;
+    const tmplKey =
+      kind === 'candle' ? 'notify.react.candle' :
+      kind === 'salute' ? 'notify.react.salute' :
+      'notify.react.rest';
+    const refUrl = portraitUrl || f.patientAvatarUrl || '';
+    if (!refUrl) return; // no image to attach → skip (spec requires ref_url)
     event.trigger('fate_react', {
-      target_user_id: entry.byUserId,
-      fate_id: f.id,
-      kind,
-      outcome: f.outcome,
+      actions: [
+        {
+          type: 'notify',
+          target_user_id: entry.byUserId,
+          image: {
+            ref_url: refUrl,
+            prompt: `${f.patientName ?? 'patient'} portrait, dream-ER fate wall`,
+          },
+          message: { template: t(tmplKey), variables: ['sender_name'] },
+        },
+      ],
     });
-  }, [tapped, event, entry.byUserId, f.id, f.outcome]);
-
-  const portraitUrl = pickFatePortrait(f);
+  }, [tapped, event, entry.byUserId, mine, portraitUrl, f.patientAvatarUrl, f.patientName]);
   const hasMorgueStamp = !!f.morgueImageUrl && f.morgueImageUrl !== portraitUrl;
 
   return (

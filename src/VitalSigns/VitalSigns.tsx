@@ -20,6 +20,24 @@ import PlethCanvas from './components/PlethCanvas';
 import CriticalFx from './components/CriticalFx';
 import MonitorView from './components/MonitorView';
 import { t } from './i18n';
+
+function notifyConfig(opts: {
+  target_user_id: string;
+  template: string;
+  ref_url: string;
+  prompt: string;
+}) {
+  return {
+    actions: [
+      {
+        type: 'notify',
+        target_user_id: opts.target_user_id,
+        image: { ref_url: opts.ref_url, prompt: opts.prompt },
+        message: { template: opts.template, variables: ['sender_name'] },
+      },
+    ],
+  };
+}
 import * as audio from './utils/audio';
 
 type Phase = 'splash' | 'playing' | 'dying' | 'certificate' | 'wall';
@@ -83,19 +101,26 @@ export default function VitalSigns() {
         bestCombo: cur.state.bestCombo,
       });
       // Platform event — fires backend notify to the friend whose dream
-      // ended on the table tonight. Same pattern as Wake-Up / Tag You're It.
-      event.trigger('patient_lost', {
-        target_user_id: patient.telegram_id,
-        outcome: cause,
-        lifeSeconds: Math.floor(cur.state.lifeSeconds),
-      });
+      // ended on the table tonight.
+      const lethal = portraits.variants.lethal;
+      event.trigger(
+        'patient_lost',
+        notifyConfig({
+          target_user_id: patient.telegram_id,
+          template: t('notify.lost'),
+          ref_url: lethal || patient.head_url,
+          prompt: lethal
+            ? `${patient.name} on the dream-ER table, defibrillator pads, harsh red emergency light`
+            : `${patient.name} portrait, night-shift dream-ER`,
+        }),
+      );
     }
 
     setTimeout(() => {
       audio.stopSustained();
       setPhase('certificate');
     }, 2600);
-  }, [cert, patient, event]);
+  }, [cert, patient, event, portraits]);
 
   // Manual release — only available once the patient has stabilized.
   // Treated as a survival outcome.
@@ -111,13 +136,20 @@ export default function VitalSigns() {
       outcome: 'survived',
       bestCombo: cur.state.bestCombo,
     });
-    event.trigger('patient_saved', {
-      target_user_id: patient.telegram_id,
-      lifeSeconds: Math.floor(cur.state.lifeSeconds),
-      bestCombo: cur.state.bestCombo,
-    });
+    const stable = portraits.variants.stable;
+    event.trigger(
+      'patient_saved',
+      notifyConfig({
+        target_user_id: patient.telegram_id,
+        template: t('notify.saved'),
+        ref_url: stable || patient.head_url,
+        prompt: stable
+          ? `${patient.name} stabilized in the dream-ER, calm teal light, peaceful breath`
+          : `${patient.name} portrait, night-shift dream-ER`,
+      }),
+    );
     setTimeout(() => setPhase('certificate'), 1200);
-  }, [phase, patient, cert, event]);
+  }, [phase, patient, cert, event, portraits]);
 
   const { state, beats, tap, reset } = useHeartbeat({
     enabled: phase === 'playing',
